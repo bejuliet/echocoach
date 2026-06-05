@@ -29,9 +29,6 @@ export const transcribe = action({
     mimeType: v.string(), // e.g. "audio/webm" (Chrome) or "audio/mp4" (Safari)
   },
   handler: async (_ctx, args) => {
-    // #region agent log
-    await fetch('http://127.0.0.1:7817/ingest/47e5338f-9597-435e-b23e-18b27512f27d',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4d2960'},body:JSON.stringify({sessionId:'4d2960',runId:'post-fix',hypothesisId:'A',location:'convex/ai.ts:32',message:'transcribe entry: is OPENAI_API_KEY present?',data:{hasKey:!!process.env.OPENAI_API_KEY,deployment:process.env.CONVEX_CLOUD_URL??'local',mimeType:args.mimeType,audioBytes:args.audio.byteLength},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     const apiKey = getApiKey();
 
     // Whisper wants a real file upload, so we wrap the bytes in a Blob and
