@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EchoCoach
 
-## Getting Started
+**Coach, Capture, Connect.**
 
-First, run the development server:
+EchoCoach lets a tennis coach speak their notes after a class. It transcribes
+the voice (OpenAI Whisper), then turns four short answers into a warm,
+professional review message (OpenAI GPT) that gets saved to a log to share with
+students or parents.
+
+Built with **Next.js** (App Router + TypeScript + Tailwind) and **Convex**
+(reactive backend + database). All AI calls run server-side inside Convex
+actions, so your OpenAI key never reaches the browser.
+
+## Prerequisites
+
+This project needs **Node.js 18.18+** (it was set up with Node 24 LTS via `nvm`). If you open a fresh terminal, make sure the right Node is active:
+
+```bash
+nvm use default   # selects the Node LTS installed via nvm
+node --version     # should print v24.x (or any 18.18+)
+```
+
+## First-time setup
+
+Dependencies are already installed. The one remaining step is connecting the Convex backend:
+
+```bash
+npx convex dev
+```
+
+This will:
+
+1. Open your browser to **log in / create a free Convex account**.
+2. Create a development deployment for this project.
+3. Write your deployment URL into `.env.local` as `NEXT_PUBLIC_CONVEX_URL`.
+4. Generate the `convex/_generated/` types used by the app.
+
+Leave that command running — it watches the `convex/` folder and pushes changes automatically.
+
+### Add your OpenAI key
+
+EchoCoach uses one OpenAI key for **both** voice transcription (Whisper) and
+message polishing (GPT). Create a key at
+[platform.openai.com](https://platform.openai.com) (you'll need to pre-pay a
+little credit — usage is roughly 2-3 cents per completed review), then store it
+as a Convex environment variable so it stays server-side:
+
+```bash
+npx convex env set OPENAI_API_KEY sk-...your-key...
+```
+
+## Run the app
+
+In a **second terminal**, start the Next.js dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+> Note: `npm run dev` works on its own, but Convex queries/mutations only function after you've run `npx convex dev` (so the deployment URL exists). Until then the app loads without a live backend.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project structure
 
-## Learn More
+```
+convex/                  # Backend: schema + serverless functions
+  schema.ts              # Data model (the `reviews` table)
+  reviews.ts             # list query + create mutation for saved reviews
+  ai.ts                  # Actions: transcribe (Whisper) + polish (GPT)
+src/app/
+  layout.tsx             # App shell: serif font, top nav, ConvexClientProvider
+  ConvexClientProvider.tsx  # Connects the frontend to Convex
+  page.tsx               # Feature page: the 4-step voice review wizard
+  log/page.tsx           # Log page: dashboard + saved reviews
+  components/
+    Logo.tsx             # Hand-held speaker logo (SVG)
+    VoiceInput.tsx       # Reusable record -> transcribe -> edit -> approve block
+  icon.svg               # Favicon
+.cursor/rules/convex.mdc # Project rule so the AI follows Convex conventions
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Useful commands
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command          | What it does                                  |
+| ---------------- | --------------------------------------------- |
+| `npx convex dev` | Run/watch the Convex backend (log in first)   |
+| `npm run dev`    | Start the Next.js dev server                  |
+| `npm run build`  | Production build (run `npx convex dev` first) |
+| `npm run lint`   | Lint the codebase                             |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Docs
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Convex: https://docs.convex.dev/home
+- Next.js: https://nextjs.org/docs

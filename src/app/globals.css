@@ -1,26 +1,37 @@
 @import "tailwindcss";
 
+/*
+  EchoCoach design tokens.
+  Direction: clean, minimalist, classic. A warm off-white "paper" background,
+  soft ink text, and a single calm green accent. Serif typography throughout.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f5f0; /* warm paper */
+  --surface: #ffffff; /* cards sit slightly brighter than the page */
+  --foreground: #2b2a26; /* soft near-black ink */
+  --muted: #7a766c; /* secondary text */
+  --border: #e7e2d8; /* subtle warm hairlines */
+  --accent: #2f6d54; /* calm tennis green */
+  --accent-soft: #eaf0ec; /* tint of the accent for backgrounds */
 }
 
+/* Expose the tokens to Tailwind utilities (bg-surface, text-muted, etc.). */
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  /* The serif families are loaded in layout.tsx via next/font. */
+  --font-serif: var(--font-serif);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Serif by default gives the whole app its classic feel. */
+  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  -webkit-font-smoothing: antialiased;
 }
