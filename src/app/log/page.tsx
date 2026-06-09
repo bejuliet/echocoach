@@ -1,77 +1,108 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import {
+  Button,
+  Card,
+  CardHeader,
+  CardSubtitle,
+  CardTitle,
+  PageHeader,
+} from "@/app/components/ui";
+import { TennisBallIcon } from "@/app/components/TennisBallIcon";
 
 export default function LogPage() {
-  // useQuery is reactive: when a new review is saved, this list updates on its
-  // own. It returns `undefined` while the data is still loading.
+  const router = useRouter();
+
+  // useQuery is reactive: when a new review is saved, this list updates on its own.
   const reviews = useQuery(api.reviews.list);
 
   const isLoading = reviews === undefined;
   const total = reviews?.length ?? 0;
-  const latestStudent = reviews?.[0]?.studentName;
+
+  // Count how many different students appear in the log.
+  const studentCount = useMemo(() => {
+    if (!reviews) return 0;
+    return new Set(reviews.map((review) => review.studentName.trim().toLowerCase()))
+      .size;
+  }, [reviews]);
 
   return (
-    <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Review log</h1>
-        <p className="text-muted">
+    <div className="flex min-h-dvh flex-col bg-canvas px-5 pb-8">
+      <PageHeader title="History" onBack={() => router.push("/")} />
+
+      <header className="mt-2 flex flex-col gap-1">
+        <p className="text-sm text-ink-muted">
           Every approved class review, saved for your records.
         </p>
       </header>
 
-      {/* Small dashboard summary. */}
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard label="Reviews saved" value={isLoading ? "-" : `${total}`} />
-        <StatCard
-          label="Most recent student"
-          value={isLoading ? "-" : (latestStudent ?? "None yet")}
-        />
+      {/* Dashboard summary — matches the design-system stat cards. */}
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <Card padding="sm">
+          <p className="text-2xl font-bold text-tennis-700">
+            {isLoading ? "—" : total}
+          </p>
+          <CardSubtitle>Reviews saved</CardSubtitle>
+        </Card>
+        <Card padding="sm">
+          <p className="truncate text-2xl font-bold text-tennis-700">
+            {isLoading ? "—" : studentCount}
+          </p>
+          <CardSubtitle>Students</CardSubtitle>
+        </Card>
       </div>
 
-      {/* Loading / empty / list states. */}
-      {isLoading ? (
-        <p className="text-muted">Loading your reviews...</p>
-      ) : total === 0 ? (
-        <div className="flex flex-col items-start gap-4 rounded-3xl border border-dashed border-border bg-surface p-8 text-muted shadow-sm">
-          <p>No reviews yet. Your saved class reviews will appear here.</p>
-          <Link
-            href="/"
-            className="rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
+      <div className="mt-6 flex flex-1 flex-col gap-4">
+        {isLoading ? (
+          <p className="text-sm text-ink-muted">Loading your reviews...</p>
+        ) : total === 0 ? (
+          <Card className="flex flex-col items-start gap-4 border-dashed">
+            <p className="text-sm leading-relaxed text-ink-muted">
+              No reviews yet. Your saved class reviews will appear here.
+            </p>
+            <Button
+              icon={<MicIcon />}
+              onClick={() => router.push("/review")}
+            >
+              New Class Review
+            </Button>
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {reviews.map((review) => (
+              <ReviewCard
+                key={review._id}
+                studentName={review.studentName}
+                createdAt={review.createdAt}
+                message={review.message}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Thumb-zone CTA when the coach already has saved reviews. */}
+      {!isLoading && total > 0 && (
+        <div className="mt-6">
+          <Button
+            fullWidth
+            icon={<MicIcon />}
+            onClick={() => router.push("/review")}
+            className="!bg-gradient-to-b !from-tennis-800 !to-tennis-900 shadow-lg"
           >
-            Create your first review
-          </Link>
+            New Class Review
+          </Button>
         </div>
-      ) : (
-        <ul className="flex flex-col gap-5">
-          {reviews.map((review) => (
-            <ReviewCard
-              key={review._id}
-              studentName={review.studentName}
-              createdAt={review.createdAt}
-              message={review.message}
-            />
-          ))}
-        </ul>
       )}
     </div>
   );
 }
 
-// One number on the dashboard.
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-3xl border border-border bg-surface p-6 shadow-sm">
-      <p className="text-sm text-muted">{label}</p>
-      <p className="mt-1 truncate text-2xl font-semibold">{value}</p>
-    </div>
-  );
-}
-
-// One saved review, with a copy-to-clipboard button for easy sharing.
+// One saved review — same card pattern as the Review Ready message preview.
 function ReviewCard({
   studentName,
   createdAt,
@@ -83,38 +114,116 @@ function ReviewCard({
 }) {
   const [copied, setCopied] = useState(false);
 
-  async function copy() {
-    await navigator.clipboard.writeText(message);
-    setCopied(true);
-    // Reset the "Copied!" label after a moment.
-    setTimeout(() => setCopied(false), 1500);
-  }
-
+  const displayName = studentName.trim() || "Your student";
+  const initials = getInitials(displayName);
   const dateLabel = new Date(createdAt).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
+  async function copy() {
+    await navigator.clipboard.writeText(message);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
   return (
-    <li className="flex flex-col gap-3 rounded-3xl border border-border bg-surface p-7 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col">
-          <span className="text-lg font-semibold">{studentName}</span>
-          <span className="text-sm text-muted">{dateLabel}</span>
-        </div>
-        <button
-          type="button"
-          onClick={copy}
-          className="shrink-0 rounded-full border border-border px-4 py-1.5 text-sm transition-colors hover:bg-accent-soft hover:text-accent"
+    <li>
+      <Card>
+        <CardHeader
+          leading={
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-tennis-100 text-sm font-semibold text-tennis-800">
+              {initials}
+            </span>
+          }
+          trailing={<TennisBallIcon className="h-7 w-7 shrink-0" />}
         >
-          {copied ? "Copied!" : "Copy"}
-        </button>
-      </div>
-      {/* `whitespace-pre-wrap` preserves the line breaks in the message. */}
-      <p className="whitespace-pre-wrap leading-relaxed text-foreground">
-        {message}
-      </p>
+          <CardTitle>{displayName}</CardTitle>
+          <CardSubtitle>
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarIcon />
+              {dateLabel}
+            </span>
+          </CardSubtitle>
+        </CardHeader>
+
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-ink">
+          {message}
+        </p>
+
+        <div className="mt-4">
+          <Button
+            variant="secondary"
+            size="md"
+            icon={<CopyIcon />}
+            onClick={copy}
+          >
+            {copied ? "Copied!" : "Copy message"}
+          </Button>
+        </div>
+      </Card>
     </li>
+  );
+}
+
+function getInitials(name: string): string {
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function MicIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v4" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-3.5 w-3.5"
+      aria-hidden="true"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
   );
 }

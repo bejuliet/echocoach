@@ -2,8 +2,8 @@
 
 /*
   EchoCoach design tokens.
-  Direction: clean, minimalist, classic. A warm off-white "paper" background,
-  soft ink text, and a single calm green accent. Serif typography throughout.
+  Direction: clean, minimalist, modern. A warm off-white "paper" background,
+  soft ink text, and a single calm green accent. Sans typography throughout.
 */
 :root {
   --background: #f7f5f0; /* warm paper */
@@ -24,14 +24,77 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
-  /* The serif families are loaded in layout.tsx via next/font. */
-  --font-serif: var(--font-serif);
+  /* Sans family loaded in layout.tsx via next/font. */
+  --font-sans: var(--font-sans);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  /* Serif by default gives the whole app its classic feel. */
-  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  /* Sans by default keeps the app modern and easy to read outdoors. */
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+  ============================================================================
+  EchoCoach DESIGN SYSTEM tokens (tennis-green theme).
+  ----------------------------------------------------------------------------
+  These are ADDITIVE: they sit alongside the original "warm paper" tokens above
+  so existing pages are unaffected. New design-system components and the
+  /design-system styleguide use these. See "Design Folder/EchoCoach Design
+  System.md" for the full documentation.
+  ============================================================================
+*/
+:root {
+  /* Brand greens - the tennis theme. Higher number = darker. */
+  --tennis-50: #f0f7f1; /* lightest tint, subtle backgrounds */
+  --tennis-100: #dcefe1; /* soft fills, selected states */
+  --tennis-200: #bfe0c8; /* borders/dividers on green surfaces */
+  --tennis-500: #3aae5f; /* success / confirmation green */
+  --tennis-600: #2e7d52; /* hover state for primary */
+  --tennis-700: #1f7a4d; /* PRIMARY brand + main buttons */
+  --tennis-800: #166534; /* pressed/active state */
+  --tennis-900: #14532d; /* deepest green, high-contrast text on light */
+
+  /* Tennis-ball lime - sparing accent only (logo dot, highlights). */
+  --lime-400: #c2e66e;
+  --lime-500: #a8d84b;
+
+  /* Home hero "court" gradient. */
+  --court-from: #e8f3e2;
+  --court-to: #cfe6c4;
+
+  /* Neutrals + surfaces for the green theme. */
+  --ink: #1c2b22; /* primary text (greenish near-black) */
+  --ink-muted: #5c6b62; /* secondary text */
+  --line: #e2e8e3; /* hairline borders */
+  --card: #ffffff; /* card surface */
+  --canvas: #f4f8f3; /* page background */
+}
+
+/*
+  Expose the design-system tokens to Tailwind so utilities exist, e.g.
+  bg-tennis-700, text-ink, border-line, text-ink-muted, bg-lime-400.
+  This is a separate @theme block; it does not touch the original one above.
+*/
+@theme inline {
+  --color-tennis-50: var(--tennis-50);
+  --color-tennis-100: var(--tennis-100);
+  --color-tennis-200: var(--tennis-200);
+  --color-tennis-500: var(--tennis-500);
+  --color-tennis-600: var(--tennis-600);
+  --color-tennis-700: var(--tennis-700);
+  --color-tennis-800: var(--tennis-800);
+  --color-tennis-900: var(--tennis-900);
+  --color-lime-400: var(--lime-400);
+  --color-lime-500: var(--lime-500);
+  --color-court-from: var(--court-from);
+  --color-court-to: var(--court-to);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-card: var(--card);
+  --color-canvas: var(--canvas);
+  --font-sans: var(--font-sans);
 }

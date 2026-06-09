@@ -1,261 +1,152 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useAction, useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import { VoiceInput } from "./components/VoiceInput";
+import Image from "next/image";
+import { useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { Button, LanguageSelector, type Language } from "@/app/components/ui";
+import { Logo } from "@/app/components/Logo";
+import { TennisBallIcon } from "@/app/components/TennisBallIcon";
 
-// The four questions the coach answers, in order. `key` matches the fields we
-// store; `label` is the prompt shown on screen.
-const STEPS = [
-  { key: "studentName", label: "What is the student's name?" },
-  { key: "whatWeDid", label: "What did we do in the class?" },
-  { key: "progress", label: "What was the progress?" },
-  { key: "nextSteps", label: "What are the next steps and practice?" },
-] as const;
+const LANGUAGE_STORAGE_KEY = "echocoach.language";
+const LANGUAGE_CHANGE_EVENT = "echocoach-language-change";
 
-type AnswerKey = (typeof STEPS)[number]["key"];
-type Answers = Record<AnswerKey, string>;
+// Background anchor tuned for a 390 × 844 mobile viewport (DevTools iPhone 14 Pro).
+const HOME_BG_POSITION = "32% 82%";
 
-const EMPTY_ANSWERS: Answers = {
-  studentName: "",
-  whatWeDid: "",
-  progress: "",
-  nextSteps: "",
-};
+export default function HomePage() {
+  const router = useRouter();
+  const language = useSyncExternalStore(
+    subscribeToLanguagePreference,
+    getLanguagePreference,
+    getServerLanguagePreference,
+  );
 
-// The wizard moves through three phases:
-//  - "collect": answering the 4 questions by voice
-//  - "review":  approving the AI-polished message
-//  - "done":    saved! offer to start another
-type Phase = "collect" | "review" | "done";
-
-export default function FeaturePage() {
-  const polish = useAction(api.ai.polish);
-  const createReview = useMutation(api.reviews.create);
-
-  const [phase, setPhase] = useState<Phase>("collect");
-  const [stepIndex, setStepIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
-
-  const [message, setMessage] = useState("");
-  const [isPolishing, setIsPolishing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const currentStep = STEPS[stepIndex];
-  const isLastStep = stepIndex === STEPS.length - 1;
-
-  // Update one answer as the coach edits/records it.
-  function setAnswer(key: AnswerKey, value: string) {
-    setAnswers((prev) => ({ ...prev, [key]: value }));
-  }
-
-  // Ask GPT to turn the four answers into a warm review message.
-  async function generateMessage() {
-    setError(null);
-    setIsPolishing(true);
-    try {
-      const today = new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-      const result = await polish({ ...answers, today });
-      setMessage(result);
-      setPhase("review");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not generate the message.",
-      );
-    } finally {
-      setIsPolishing(false);
-    }
-  }
-
-  // Approve a step. On the last step, generate the review instead of advancing.
-  function approveStep() {
-    if (isLastStep) {
-      void generateMessage();
-    } else {
-      setStepIndex((i) => i + 1);
-    }
-  }
-
-  // Save the approved message to the log.
-  async function saveReview() {
-    setError(null);
-    setIsSaving(true);
-    try {
-      await createReview({ ...answers, message });
-      setPhase("done");
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not save the review.",
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  // Clear everything for a brand new review.
-  function startOver() {
-    setAnswers(EMPTY_ANSWERS);
-    setMessage("");
-    setStepIndex(0);
-    setError(null);
-    setPhase("collect");
+  function handleLanguageChange(nextLanguage: Language) {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+    window.dispatchEvent(new Event(LANGUAGE_CHANGE_EVENT));
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          New class review
-        </h1>
-        <p className="text-muted">
-          Speak your notes after class. EchoCoach turns them into a warm,
-          professional message for your student.
-        </p>
-      </header>
+    <div className="relative min-h-dvh w-full overflow-hidden bg-tennis-50">
+      <Image
+        src="/home-background.png"
+        alt=""
+        fill
+        priority
+        sizes="390px"
+        className="object-cover"
+        style={{ objectPosition: HOME_BG_POSITION }}
+      />
 
-      {/* PHASE 1: collect the four answers, one at a time. */}
-      {phase === "collect" && (
-        <section className="flex flex-col gap-6 rounded-3xl border border-border bg-surface p-8 shadow-sm">
-          <StepProgress current={stepIndex} total={STEPS.length} />
-          <VoiceInput
-            key={currentStep.key}
-            label={currentStep.label}
-            value={answers[currentStep.key]}
-            onChange={(v) => setAnswer(currentStep.key, v)}
-            onApprove={approveStep}
-            approveLabel={isLastStep ? "Generate review" : "Approve & continue"}
-            placeholder={
-              currentStep.key === "studentName"
-                ? "e.g. Emma"
-                : "Record above, or type here..."
-            }
+      <div className="relative z-10 flex min-h-dvh w-full flex-col px-7">
+        <header className="mt-[1cm] flex flex-col items-center pt-14 text-center">
+          <div className="relative mb-4 inline-block">
+            <Logo className="h-[4.5rem] w-[4.5rem] text-tennis-900" />
+            <TennisBallIcon className="absolute right-0 top-[0.35rem] h-6 w-6" />
+          </div>
+          <h1 className="text-[2.35rem] font-bold leading-none tracking-tight text-tennis-900">
+            EchoCoach
+          </h1>
+          <p className="mt-2 text-sm font-medium text-tennis-800">
+            Coach. Capture. Connect.
+          </p>
+          <div
+            aria-hidden="true"
+            className="mt-4 h-px w-14 bg-ink-muted/35"
           />
+        </header>
 
-          {/* Let the coach step back to fix an earlier answer. */}
-          {stepIndex > 0 && (
+        <div className="flex flex-1 items-center justify-center px-3 pb-6 text-center">
+          <p className="max-w-[17rem] text-sm leading-6 text-black">
+            Capture class notes in one calm flow.
+          </p>
+        </div>
+
+        <div className="-translate-y-[0.5cm] pb-8">
+          <Button
+            fullWidth
+            icon={<MicIcon />}
+            onClick={() => router.push("/review")}
+            className="min-h-[4.5rem] !bg-gradient-to-b !from-tennis-800 !to-tennis-900 text-base shadow-lg hover:!from-tennis-900 hover:!to-[#0f3d24]"
+          >
+            New Class Review
+          </Button>
+
+          <nav className="mt-[3.75rem] flex overflow-hidden rounded-2xl bg-[#e8f1e7]/95 shadow-sm backdrop-blur-sm">
             <button
               type="button"
-              onClick={() => setStepIndex((i) => i - 1)}
-              className="self-start text-sm text-muted underline-offset-4 hover:underline"
+              onClick={() => router.push("/log")}
+              className="flex min-h-[3.9rem] flex-1 items-center justify-center gap-2 border-r border-ink-muted/20 px-4 text-sm font-medium text-ink transition-colors hover:bg-white/40"
             >
-              Back to previous question
+              <HistoryIcon />
+              History
             </button>
-          )}
-
-          {isPolishing && (
-            <p className="text-sm text-muted">
-              Writing your review message...
-            </p>
-          )}
-          {error && <p className="text-sm text-red-600">{error}</p>}
-        </section>
-      )}
-
-      {/* PHASE 2: review and approve the polished message. */}
-      {phase === "review" && (
-        <section className="flex flex-col gap-5 rounded-3xl border border-border bg-surface p-8 shadow-sm">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-semibold">
-              Review message for {answers.studentName || "your student"}
-            </h2>
-            <p className="text-sm text-muted">
-              Edit anything you like, then approve to save it to your log.
-            </p>
-          </div>
-
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={14}
-            className="w-full resize-y rounded-2xl border border-border bg-background px-5 py-4 text-base leading-relaxed shadow-inner outline-none focus:ring-2 focus:ring-accent/40"
-          />
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={saveReview}
-              disabled={isSaving || message.trim().length === 0}
-              className="rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              {isSaving ? "Saving..." : "Approve & save"}
-            </button>
-            <button
-              type="button"
-              onClick={generateMessage}
-              disabled={isPolishing}
-              className="rounded-full border border-border px-6 py-2.5 text-sm font-medium transition-colors hover:bg-accent-soft disabled:opacity-40"
-            >
-              {isPolishing ? "Rewriting..." : "Regenerate"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPhase("collect")}
-              className="rounded-full px-6 py-2.5 text-sm font-medium text-muted transition-colors hover:bg-accent-soft hover:text-accent"
-            >
-              Edit answers
-            </button>
-          </div>
-        </section>
-      )}
-
-      {/* PHASE 3: saved confirmation. */}
-      {phase === "done" && (
-        <section className="flex flex-col items-start gap-5 rounded-3xl border border-border bg-surface p-8 shadow-sm">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-semibold">Saved to your log</h2>
-            <p className="text-muted">
-              Your review for {answers.studentName || "your student"} is ready
-              to share.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={startOver}
-              className="rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-            >
-              Start a new review
-            </button>
-            <Link
-              href="/log"
-              className="rounded-full border border-border px-6 py-2.5 text-sm font-medium transition-colors hover:bg-accent-soft"
-            >
-              View log
-            </Link>
-          </div>
-        </section>
-      )}
+            <div className="flex min-h-[3.9rem] flex-1 items-center justify-center">
+              <LanguageSelector
+                variant="inline"
+                value={language}
+                onChange={handleLanguageChange}
+              />
+            </div>
+          </nav>
+        </div>
+      </div>
     </div>
   );
 }
 
-// A small "1 of 4" indicator with dots, so the coach knows where they are.
-function StepProgress({ current, total }: { current: number; total: number }) {
+function getLanguagePreference(): Language {
+  const saved = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  return saved === "zh" ? "zh" : "en";
+}
+
+function getServerLanguagePreference(): Language {
+  return "en";
+}
+
+function subscribeToLanguagePreference(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
+  };
+}
+
+function MicIcon() {
   return (
-    <div className="flex items-center gap-3 text-sm text-muted">
-      <span>
-        Question {current + 1} of {total}
-      </span>
-      <div className="flex gap-1.5">
-        {Array.from({ length: total }).map((_, i) => (
-          <span
-            key={i}
-            className={`h-1.5 w-6 rounded-full transition-colors ${
-              i <= current ? "bg-accent" : "bg-border"
-            }`}
-          />
-        ))}
-      </div>
-    </div>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+      aria-hidden="true"
+    >
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0M12 18v4" />
+    </svg>
+  );
+}
+
+function HistoryIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[1.15rem] w-[1.15rem] text-tennis-800"
+      aria-hidden="true"
+    >
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+      <path d="M9 12h6M9 16h4" />
+    </svg>
   );
 }
