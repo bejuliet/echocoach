@@ -62,7 +62,7 @@ const COPY = {
         yourStudent: "Your student",
         coachSignature: "Your Coach,",
         rewriting: "Rewriting your message...",
-        approveSave: "Approve & Save",
+        approveShare: "Approve & Share",
         editMessage: "Edit Message",
         regenerate: "Regenerate message",
         regenerating: "Regenerating...",
@@ -73,6 +73,8 @@ const COPY = {
         yourStudent: "your student",
         startOver: "Start a new review",
         viewLog: "View log",
+        shareCopiedNotice:
+          "Message copied — paste into WeChat, Messages, or Email.",
       },
       errors: {
         generateFailed: "Could not generate the message.",
@@ -141,7 +143,7 @@ const COPY = {
         yourStudent: "您的学员",
         coachSignature: "您的教练，",
         rewriting: "正在重写反馈……",
-        approveSave: "确认并保存",
+        approveShare: "确认并分享",
         editMessage: "编辑反馈",
         regenerate: "重新生成反馈",
         regenerating: "正在重新生成……",
@@ -152,6 +154,7 @@ const COPY = {
         yourStudent: "您的学员",
         startOver: "开始新的反馈",
         viewLog: "查看历史记录",
+        shareCopiedNotice: "反馈已复制 — 可粘贴到微信、短信或邮件。",
       },
       errors: {
         generateFailed: "无法生成反馈。",

@@ -7,10 +7,12 @@ import { useLanguagePreference } from "@/app/lib/languagePreference";
 // Shown after the coach approves and saves — keeps the same flow, tennis-green styling.
 export function ReviewSavedView({
   studentName,
+  shareNotice,
   onStartOver,
   onViewLog,
 }: {
   studentName: string;
+  shareNotice?: string | null;
   onStartOver: () => void;
   onViewLog: () => void;
 }) {
@@ -27,6 +29,9 @@ export function ReviewSavedView({
         <div className="flex flex-col gap-1">
           <h2 className="text-xl font-semibold text-tennis-900">{copy.title}</h2>
           <p className="text-sm text-ink-muted">{copy.body(displayName)}</p>
+          {shareNotice && (
+            <p className="text-sm text-ink-muted">{shareNotice}</p>
+          )}
         </div>
       </div>
 

@@ -129,7 +129,7 @@ export function MessageGenerationView({
           disabled={message.trim().length === 0 || isPolishing}
           className="!bg-gradient-to-b !from-tennis-800 !to-tennis-900 shadow-lg"
         >
-          {copy.approveSave}
+          {copy.approveShare}
         </Button>
         <Button
           fullWidth

@@ -20,6 +20,7 @@ import {
   getCopy,
   type StepKey,
 } from "@/app/lib/i18n";
+import { shareClassReviewMessage } from "@/app/lib/shareMessage";
 import { useLanguagePreference, getLanguagePreference } from "@/app/lib/languagePreference";
 
 type Answers = Record<StepKey, string>;
@@ -51,6 +52,7 @@ export default function ReviewPage() {
   const [isPolishing, setIsPolishing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
 
   const currentStep = steps[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
@@ -105,6 +107,10 @@ export default function ReviewPage() {
     setIsSaving(true);
     try {
       await createReview({ ...answers, message });
+      const outcome = await shareClassReviewMessage(message);
+      setShareNotice(
+        outcome === "copied" ? copy.saved.shareCopiedNotice : null,
+      );
       setPhase("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : copy.errors.saveFailed);
@@ -118,6 +124,7 @@ export default function ReviewPage() {
     setMessage("");
     setStepIndex(0);
     setError(null);
+    setShareNotice(null);
     setPhase("collect");
     setCaptureStage("listening");
   }
@@ -196,6 +203,7 @@ export default function ReviewPage() {
   return (
     <ReviewSavedView
       studentName={answers.studentName}
+      shareNotice={shareNotice}
       onStartOver={startOver}
       onViewLog={() => router.push("/log")}
     />

@@ -1,5 +1,5 @@
 import { action } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 // All OpenAI calls live here, inside Convex *actions*.
 // Actions are the only Convex function type allowed to talk to the outside
@@ -30,39 +30,88 @@ export const transcribe = action({
     language: v.union(v.literal("en"), v.literal("zh")),
   },
   handler: async (_ctx, args) => {
-    const apiKey = getApiKey();
+    const meta = {
+      byteLength: args.audio.byteLength,
+      mimeType: args.mimeType,
+      language: args.language,
+    };
 
-    // Whisper wants a real file upload, so we wrap the bytes in a Blob and
-    // give it a filename whose extension matches the recording format.
-    const extension = args.mimeType.includes("mp4")
-      ? "mp4"
-      : args.mimeType.includes("ogg")
-        ? "ogg"
-        : args.mimeType.includes("wav")
-          ? "wav"
-          : "webm";
-    const blob = new Blob([args.audio], { type: args.mimeType });
+    // #region agent log
+    console.log("[transcribe] start", meta);
+    // #endregion
 
-    const form = new FormData();
-    form.append("file", blob, `recording.${extension}`);
-    form.append("model", "whisper-1");
-    form.append("language", args.language);
+    try {
+      const apiKey = getApiKey();
 
-    const res = await fetch(`${OPENAI_BASE}/audio/transcriptions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
-    });
+      if (args.audio.byteLength === 0) {
+        throw new ConvexError({
+          ...meta,
+          message:
+            "Audio recording was empty. On iPhone, hold the mic button a moment longer, then try again.",
+        });
+      }
 
-    if (!res.ok) {
-      const detail = await res.text();
-      throw new Error(`Whisper transcription failed (${res.status}): ${detail}`);
+      const normalizedMime = normalizeMimeType(args.mimeType);
+      const extension = extensionForMime(normalizedMime);
+      const blob = new Blob([args.audio], { type: normalizedMime });
+
+      const form = new FormData();
+      form.append("file", blob, `recording.${extension}`);
+      form.append("model", "whisper-1");
+      form.append("language", whisperLanguage(args.language));
+
+      const res = await fetch(`${OPENAI_BASE}/audio/transcriptions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+      });
+
+      if (!res.ok) {
+        const detail = await res.text();
+        // #region agent log
+        console.error("[transcribe] whisper failed", res.status, detail);
+        // #endregion
+        throw new ConvexError({
+          ...meta,
+          message: `Whisper transcription failed (${res.status})`,
+        });
+      }
+
+      const data = (await res.json()) as { text: string };
+      return data.text.trim();
+    } catch (err) {
+      if (err instanceof ConvexError) throw err;
+      // #region agent log
+      console.error("[transcribe] unexpected error", err);
+      // #endregion
+      const message =
+        err instanceof Error ? err.message : "Transcription failed unexpectedly";
+      throw new ConvexError({ ...meta, message });
     }
-
-    const data = (await res.json()) as { text: string };
-    return data.text.trim();
   },
 });
+
+function normalizeMimeType(mimeType: string): string {
+  const mime = mimeType.toLowerCase();
+  if (mime.includes("mp4") || mime.includes("m4a")) return "audio/mp4";
+  if (mime.includes("webm")) return "audio/webm";
+  if (mime.includes("ogg")) return "audio/ogg";
+  if (mime.includes("wav")) return "audio/wav";
+  return mimeType || "audio/mp4";
+}
+
+function whisperLanguage(language: "en" | "zh"): string {
+  return language === "zh" ? "zh" : "en";
+}
+
+function extensionForMime(mimeType: string): string {
+  const mime = mimeType.toLowerCase();
+  if (mime.includes("mp4") || mime.includes("m4a")) return "m4a";
+  if (mime.includes("caf")) return "caf";
+  if (mime.includes("ogg")) return "ogg";
+  if (mime.includes("wav")) return "wav";
+  return "webm";
+}
 
 // Turn the coach's four approved answers into one warm, polished review.
 // `today` is passed in from the client so the date matches the coach's local
