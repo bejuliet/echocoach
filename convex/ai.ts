@@ -36,10 +36,6 @@ export const transcribe = action({
       language: args.language,
     };
 
-    // #region agent log
-    console.log("[transcribe] start", meta);
-    // #endregion
-
     try {
       const apiKey = getApiKey();
 
@@ -58,7 +54,7 @@ export const transcribe = action({
       const form = new FormData();
       form.append("file", blob, `recording.${extension}`);
       form.append("model", "whisper-1");
-      form.append("language", whisperLanguage(args.language));
+      // Let Whisper auto-detect speech language — coaches may mix English and Chinese.
 
       const res = await fetch(`${OPENAI_BASE}/audio/transcriptions`, {
         method: "POST",
@@ -68,12 +64,9 @@ export const transcribe = action({
 
       if (!res.ok) {
         const detail = await res.text();
-        // #region agent log
-        console.error("[transcribe] whisper failed", res.status, detail);
-        // #endregion
         throw new ConvexError({
           ...meta,
-          message: `Whisper transcription failed (${res.status})`,
+          message: `Whisper transcription failed (${res.status}): ${detail.slice(0, 200)}`,
         });
       }
 
@@ -81,9 +74,6 @@ export const transcribe = action({
       return data.text.trim();
     } catch (err) {
       if (err instanceof ConvexError) throw err;
-      // #region agent log
-      console.error("[transcribe] unexpected error", err);
-      // #endregion
       const message =
         err instanceof Error ? err.message : "Transcription failed unexpectedly";
       throw new ConvexError({ ...meta, message });
@@ -98,10 +88,6 @@ function normalizeMimeType(mimeType: string): string {
   if (mime.includes("ogg")) return "audio/ogg";
   if (mime.includes("wav")) return "audio/wav";
   return mimeType || "audio/mp4";
-}
-
-function whisperLanguage(language: "en" | "zh"): string {
-  return language === "zh" ? "zh" : "en";
 }
 
 function extensionForMime(mimeType: string): string {

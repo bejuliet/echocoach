@@ -8,6 +8,10 @@ import { Button } from "@/app/components/ui/Button";
 import type { Stage } from "@/app/components/ui/ProgressIndicator";
 import { getCopy } from "@/app/lib/i18n";
 import { getLanguagePreference, useLanguagePreference } from "@/app/lib/languagePreference";
+import {
+  startRecording,
+  type RecordingSession,
+} from "@/app/lib/recordAudio";
 
 // One question's voice capture flow — matches Design Concept states:
 // Listening → Transcribing → Generated (Looks Good / Edit). No Cancel, no Confirmed screen.
@@ -18,32 +22,6 @@ type VoiceInputProps = {
   onStageChange?: (stage: Stage) => void;
   stepKey?: "studentName" | "whatWeDid" | "progress" | "nextSteps";
 };
-
-function isAppleDevice(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  );
-}
-
-function pickMimeType(): string {
-  // iOS Safari records audio/mp4; desktop Chrome prefers webm.
-  if (typeof MediaRecorder === "undefined") return "";
-  const candidates = isAppleDevice()
-    ? ["audio/mp4", "audio/webm", "audio/ogg"]
-    : ["audio/webm", "audio/mp4", "audio/ogg"];
-  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
-}
-
-function normalizeRecordingMime(type: string, apple: boolean): string {
-  const mime = type.toLowerCase();
-  if (mime.includes("mp4") || mime.includes("m4a")) return "audio/mp4";
-  if (mime.includes("webm")) return "audio/webm";
-  if (mime.includes("ogg")) return "audio/ogg";
-  if (mime.includes("wav")) return "audio/wav";
-  return apple ? "audio/mp4" : "audio/webm";
-}
 
 function formatTranscribeError(err: unknown, fallback: string): string {
   if (err instanceof ConvexError) {
@@ -71,8 +49,7 @@ export function VoiceInput({
   >("idle");
   const [error, setError] = useState<string | null>(null);
 
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const sessionRef = useRef<RecordingSession | null>(null);
 
   const isRecording = status === "recording";
   const isTranscribing = status === "transcribing";
@@ -92,64 +69,10 @@ export function VoiceInput({
     else onStageChange("listening");
   }, [isRecording, isTranscribing, hasText, onStageChange]);
 
-  async function startRecording() {
+  async function startMic() {
     setError(null);
-    const apple = isAppleDevice();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = pickMimeType();
-      const recorder = new MediaRecorder(
-        stream,
-        mimeType ? { mimeType } : undefined,
-      );
-      chunksRef.current = [];
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
-      };
-
-      recorder.onstop = async () => {
-        // Build the blob before stopping tracks — stopping the mic early breaks Safari.
-        const type = normalizeRecordingMime(
-          recorder.mimeType || mimeType,
-          apple,
-        );
-        const blob = new Blob(chunksRef.current, { type });
-        stream.getTracks().forEach((track) => track.stop());
-
-        // #region agent log
-        fetch("http://127.0.0.1:7817/ingest/47e5338f-9597-435e-b23e-18b27512f27d",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"4d2960"},body:JSON.stringify({sessionId:"4d2960",runId:"ios-fix",hypothesisId:"H1",location:"VoiceInput.tsx:onstop",message:"recording assembled",data:{mimeType:type,byteLength:blob.size,chunkCount:chunksRef.current.length,apple},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-
-        if (blob.size === 0) {
-          setError(copy.transcribeFailed);
-          setStatus("idle");
-          return;
-        }
-
-        setStatus("transcribing");
-        try {
-          const bytes = new Uint8Array(await blob.arrayBuffer());
-          const text = await transcribe({
-            audio: bytes.buffer,
-            mimeType: type,
-            language: getLanguagePreference(),
-          });
-          const next = value ? `${value.trim()} ${text}`.trim() : text;
-          onChange(next);
-        } catch (err) {
-          // #region agent log
-          fetch("http://127.0.0.1:7817/ingest/47e5338f-9597-435e-b23e-18b27512f27d",{method:"POST",headers:{"Content-Type":"application/json","X-Debug-Session-Id":"4d2960"},body:JSON.stringify({sessionId:"4d2960",runId:"ios-fix",hypothesisId:"H2",location:"VoiceInput.tsx:transcribeError",message:"transcribe failed",data:{error:formatTranscribeError(err,copy.transcribeFailed),byteLength:blob.size,mimeType:type},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
-          setError(formatTranscribeError(err, copy.transcribeFailed));
-        } finally {
-          setStatus("idle");
-        }
-      };
-
-      // Safari/iOS needs 1000ms slices for Whisper-compatible mp4 (250ms was too small).
-      recorder.start(apple ? 1000 : 250);
-      recorderRef.current = recorder;
+      sessionRef.current = await startRecording();
       setStatus("recording");
     } catch {
       setError(copy.micBlocked);
@@ -157,20 +80,40 @@ export function VoiceInput({
     }
   }
 
-  function stopRecording() {
-    const recorder = recorderRef.current;
-    if (recorder && recorder.state === "recording") {
-      // requestData() before stop can corrupt iOS mp4 recordings.
-      if (!isAppleDevice()) recorder.requestData();
-      recorder.stop();
+  async function stopMic() {
+    const session = sessionRef.current;
+    sessionRef.current = null;
+    if (!session) return;
+
+    setStatus("transcribing");
+    try {
+      const { blob, mimeType } = await session.stop();
+
+      if (blob.size === 0) {
+        setError(copy.transcribeFailed);
+        setStatus("idle");
+        return;
+      }
+
+      const audio = await blob.arrayBuffer();
+      const text = await transcribe({
+        audio,
+        mimeType,
+        language: getLanguagePreference(),
+      });
+      const next = value ? `${value.trim()} ${text}`.trim() : text;
+      onChange(next);
+    } catch (err) {
+      setError(formatTranscribeError(err, copy.transcribeFailed));
+    } finally {
+      setStatus("idle");
     }
-    recorderRef.current = null;
   }
 
   function handleMicPress() {
     if (isTranscribing) return;
-    if (isRecording) stopRecording();
-    else void startRecording();
+    if (isRecording) void stopMic();
+    else void startMic();
   }
 
   return (
