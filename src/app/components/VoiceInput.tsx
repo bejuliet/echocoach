@@ -5,6 +5,8 @@ import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/app/components/ui/Button";
 import type { Stage } from "@/app/components/ui/ProgressIndicator";
+import { getCopy } from "@/app/lib/i18n";
+import { getLanguagePreference, useLanguagePreference } from "@/app/lib/languagePreference";
 
 // One question's voice capture flow — matches Design Concept states:
 // Listening → Transcribing → Generated (Looks Good / Edit). No Cancel, no Confirmed screen.
@@ -13,8 +15,7 @@ type VoiceInputProps = {
   onChange: (value: string) => void;
   onApprove: () => void;
   onStageChange?: (stage: Stage) => void;
-  placeholder?: string;
-  approveLabel?: string;
+  stepKey?: "studentName" | "whatWeDid" | "progress" | "nextSteps";
 };
 
 function pickMimeType(): string {
@@ -28,9 +29,10 @@ export function VoiceInput({
   onChange,
   onApprove,
   onStageChange,
-  placeholder,
-  approveLabel = "Looks Good",
+  stepKey,
 }: VoiceInputProps) {
+  const language = useLanguagePreference();
+  const copy = getCopy(language).review.voice;
   const transcribe = useAction(api.ai.transcribe);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -46,6 +48,10 @@ export function VoiceInput({
   const isTranscribing = status === "transcribing";
   const hasText = value.trim().length > 0;
   const showGenerated = hasText && status === "idle";
+  const placeholder =
+    stepKey === "studentName"
+      ? copy.placeholderStudentName
+      : copy.placeholderDefault;
 
   // Tell the parent which stage to highlight in the bottom StageTracker.
   useEffect(() => {
@@ -79,12 +85,16 @@ export function VoiceInput({
         setStatus("transcribing");
         try {
           const bytes = await blob.arrayBuffer();
-          const text = await transcribe({ audio: bytes, mimeType: type });
+          const text = await transcribe({
+            audio: bytes,
+            mimeType: type,
+            language: getLanguagePreference(),
+          });
           const next = value ? `${value.trim()} ${text}`.trim() : text;
           onChange(next);
         } catch (err) {
           setError(
-            err instanceof Error ? err.message : "Could not transcribe audio.",
+            err instanceof Error ? err.message : copy.transcribeFailed,
           );
         } finally {
           setStatus("idle");
@@ -95,9 +105,7 @@ export function VoiceInput({
       recorderRef.current = recorder;
       setStatus("recording");
     } catch {
-      setError(
-        "Microphone access was blocked. Please allow it in your browser to record.",
-      );
+      setError(copy.micBlocked);
       setStatus("idle");
     }
   }
@@ -122,7 +130,7 @@ export function VoiceInput({
             type="button"
             onClick={handleMicPress}
             disabled={isTranscribing}
-            aria-label={isRecording ? "Stop recording" : "Start recording"}
+            aria-label={isRecording ? copy.micStop : copy.micStart}
             className="relative flex h-44 w-44 items-center justify-center disabled:opacity-60"
           >
             {isRecording && (
@@ -142,10 +150,10 @@ export function VoiceInput({
 
           <p className="max-w-[16rem] text-sm leading-6 text-ink-muted">
             {isTranscribing
-              ? "Transcribing... Turning your voice into text."
+              ? copy.transcribing
               : isRecording
-                ? "Listening... Speak naturally. We're capturing your notes."
-                : "Tap the microphone to speak, or type below."}
+                ? copy.listening
+                : copy.idle}
           </p>
 
           {/* Allow typing before first recording. */}
@@ -154,7 +162,7 @@ export function VoiceInput({
               ref={textareaRef}
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              placeholder={placeholder ?? "Or type your answer here..."}
+              placeholder={placeholder}
               rows={3}
               className="w-full resize-none rounded-2xl border border-line bg-canvas px-4 py-3 text-sm leading-relaxed text-ink outline-none focus:ring-2 focus:ring-tennis-700/30"
             />
@@ -174,7 +182,7 @@ export function VoiceInput({
           />
           <div className="flex flex-col gap-3">
             <Button fullWidth onClick={onApprove}>
-              {approveLabel}
+              {copy.looksGood}
             </Button>
             <Button
               fullWidth
@@ -182,7 +190,7 @@ export function VoiceInput({
               icon={<PencilIcon />}
               onClick={() => textareaRef.current?.focus()}
             >
-              Edit
+              {copy.edit}
             </Button>
           </div>
         </div>

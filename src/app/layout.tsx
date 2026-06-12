@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ConvexClientProvider } from "./ConvexClientProvider";
+import { LanguageProvider } from "./lib/languagePreference";
 import { MobileAppFrame } from "./components/MobileAppFrame";
 
 // One modern sans family for the whole app — clean, readable, and mobile-friendly.
@@ -32,7 +33,9 @@ export default function RootLayout({
         className="min-h-dvh bg-canvas font-sans text-foreground"
       >
         <ConvexClientProvider>
-          <MobileAppFrame>{children}</MobileAppFrame>
+          <LanguageProvider>
+            <MobileAppFrame>{children}</MobileAppFrame>
+          </LanguageProvider>
         </ConvexClientProvider>
       </body>
     </html>

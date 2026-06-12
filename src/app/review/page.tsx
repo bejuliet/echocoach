@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -14,16 +14,15 @@ import {
   StageTracker,
   type Stage,
 } from "@/app/components/ui";
+import {
+  formatToday,
+  getStepQuestions,
+  getCopy,
+  type StepKey,
+} from "@/app/lib/i18n";
+import { useLanguagePreference, getLanguagePreference } from "@/app/lib/languagePreference";
 
-const STEPS = [
-  { key: "studentName", label: "What is the student's name?" },
-  { key: "whatWeDid", label: "What did we do in the class?" },
-  { key: "progress", label: "What was the progress?" },
-  { key: "nextSteps", label: "What are the next steps and practice?" },
-] as const;
-
-type AnswerKey = (typeof STEPS)[number]["key"];
-type Answers = Record<AnswerKey, string>;
+type Answers = Record<StepKey, string>;
 
 const EMPTY_ANSWERS: Answers = {
   studentName: "",
@@ -36,6 +35,10 @@ type Phase = "collect" | "captured" | "review" | "done";
 
 export default function ReviewPage() {
   const router = useRouter();
+  const language = useLanguagePreference();
+  const copy = getCopy(language).review;
+  const steps = useMemo(() => getStepQuestions(language), [language]);
+
   const polish = useAction(api.ai.polish);
   const createReview = useMutation(api.reviews.create);
 
@@ -49,10 +52,10 @@ export default function ReviewPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const currentStep = STEPS[stepIndex];
-  const isLastStep = stepIndex === STEPS.length - 1;
+  const currentStep = steps[stepIndex];
+  const isLastStep = stepIndex === steps.length - 1;
 
-  function setAnswer(key: AnswerKey, value: string) {
+  function setAnswer(key: StepKey, value: string) {
     setAnswers((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -60,18 +63,19 @@ export default function ReviewPage() {
     setError(null);
     setIsPolishing(true);
     try {
-      const today = new Date().toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
+      // Read fresh preference in case it changed before this async call runs.
+      const activeLanguage = getLanguagePreference();
+      const today = formatToday(activeLanguage);
+      const result = await polish({
+        ...answers,
+        today,
+        language: activeLanguage,
       });
-      const result = await polish({ ...answers, today });
       setMessage(result);
       setPhase("review");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Could not generate the message.",
+        err instanceof Error ? err.message : copy.errors.generateFailed,
       );
     } finally {
       setIsPolishing(false);
@@ -80,7 +84,6 @@ export default function ReviewPage() {
 
   function approveStep() {
     if (isLastStep) {
-      // Show the "Captured!" celebration before generating the review message.
       setPhase("captured");
     } else {
       setStepIndex((i) => i + 1);
@@ -104,9 +107,7 @@ export default function ReviewPage() {
       await createReview({ ...answers, message });
       setPhase("done");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not save the review.",
-      );
+      setError(err instanceof Error ? err.message : copy.errors.saveFailed);
     } finally {
       setIsSaving(false);
     }
@@ -121,14 +122,17 @@ export default function ReviewPage() {
     setCaptureStage("listening");
   }
 
-  /* PHASE 1 — Review Intake (design concept). No shell header; full mobile screen. */
   if (phase === "collect") {
     return (
       <div className="flex min-h-dvh flex-col bg-card px-5 pb-6">
         <PageHeader onBack={handleBack} />
 
         <div className="mt-1">
-          <StepBar current={stepIndex + 1} total={STEPS.length} />
+          <StepBar
+            current={stepIndex + 1}
+            total={steps.length}
+            language={language}
+          />
         </div>
 
         <div className="mt-6 flex flex-col items-center gap-3 text-center">
@@ -144,27 +148,21 @@ export default function ReviewPage() {
           onChange={(v) => setAnswer(currentStep.key, v)}
           onApprove={approveStep}
           onStageChange={setCaptureStage}
-          approveLabel="Looks Good"
-          placeholder={
-            currentStep.key === "studentName"
-              ? "e.g. Emma"
-              : "Or type your answer here..."
-          }
+          stepKey={currentStep.key}
         />
 
         <div className="mt-6 border-t border-line pt-4">
-          <StageTracker active={captureStage} />
+          <StageTracker active={captureStage} language={language} />
         </div>
       </div>
     );
   }
 
-  /* After question 4 — "Captured!" screen, then Continue generates the message. */
   if (phase === "captured") {
     return (
       <CapturedView
         stepIndex={stepIndex}
-        totalSteps={STEPS.length}
+        totalSteps={steps.length}
         questionLabel={currentStep.label}
         onBack={() => {
           setPhase("collect");

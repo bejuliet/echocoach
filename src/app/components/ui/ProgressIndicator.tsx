@@ -4,6 +4,8 @@
 //   2. StageTracker - the 4 voice stages for a single question
 //                     (Listening -> Transcribing -> Generated -> Confirmed).
 import type { ReactNode } from "react";
+import type { Language } from "./LanguageSelector";
+import { getCopy } from "@/app/lib/i18n";
 
 // ---------------------------------------------------------------------------
 // 1) StepBar: shows which question the coach is on, out of the total.
@@ -11,14 +13,18 @@ import type { ReactNode } from "react";
 export function StepBar({
   current,
   total,
+  language = "en",
 }: {
   current: number; // 1-based: the question currently being answered
   total: number;
+  language?: Language;
 }) {
+  const copy = getCopy(language);
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium text-ink-muted">
-        Step {current} of {total}
+        {copy.progress.stepOf(current, total)}
       </span>
       <div className="flex gap-1.5">
         {Array.from({ length: total }).map((_, i) => (
@@ -40,20 +46,31 @@ export function StepBar({
 // ---------------------------------------------------------------------------
 export type Stage = "listening" | "transcribing" | "generated" | "confirmed";
 
-// The fixed order of stages plus a short human label for each.
-const STAGE_ORDER: { id: Stage; label: string; caption: string }[] = [
-  { id: "listening", label: "Listening", caption: "Capturing voice" },
-  { id: "transcribing", label: "Transcribing", caption: "Converting to text" },
-  { id: "generated", label: "Generated", caption: "Review & edit" },
-  { id: "confirmed", label: "Confirmed", caption: "Move to next" },
+const STAGE_IDS: Stage[] = [
+  "listening",
+  "transcribing",
+  "generated",
+  "confirmed",
 ];
 
-export function StageTracker({ active }: { active: Stage }) {
-  const activeIndex = STAGE_ORDER.findIndex((s) => s.id === active);
+export function StageTracker({
+  active,
+  language = "en",
+}: {
+  active: Stage;
+  language?: Language;
+}) {
+  const copy = getCopy(language);
+  const stages = STAGE_IDS.map((id) => ({
+    id,
+    label: copy.progress.stages[id].label,
+    caption: copy.progress.stages[id].caption,
+  }));
+  const activeIndex = stages.findIndex((s) => s.id === active);
 
   return (
     <ol className="flex items-start justify-between gap-1">
-      {STAGE_ORDER.map((stage, i) => {
+      {stages.map((stage, i) => {
         const isDone = i < activeIndex;
         const isActive = i === activeIndex;
         return (

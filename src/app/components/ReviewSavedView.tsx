@@ -1,6 +1,8 @@
 "use client";
 
 import { Button } from "@/app/components/ui";
+import { getCopy } from "@/app/lib/i18n";
+import { useLanguagePreference } from "@/app/lib/languagePreference";
 
 // Shown after the coach approves and saves — keeps the same flow, tennis-green styling.
 export function ReviewSavedView({
@@ -12,7 +14,9 @@ export function ReviewSavedView({
   onStartOver: () => void;
   onViewLog: () => void;
 }) {
-  const displayName = studentName.trim() || "your student";
+  const language = useLanguagePreference();
+  const copy = getCopy(language).review.saved;
+  const displayName = studentName.trim() || copy.yourStudent;
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas px-5 pb-8 pt-6">
@@ -21,19 +25,17 @@ export function ReviewSavedView({
           <CheckIcon className="h-8 w-8" />
         </span>
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold text-tennis-900">Saved to your log</h2>
-          <p className="text-sm text-ink-muted">
-            Your review for {displayName} is ready to share.
-          </p>
+          <h2 className="text-xl font-semibold text-tennis-900">{copy.title}</h2>
+          <p className="text-sm text-ink-muted">{copy.body(displayName)}</p>
         </div>
       </div>
 
       <div className="flex flex-col gap-3">
         <Button fullWidth onClick={onStartOver}>
-          Start a new review
+          {copy.startOver}
         </Button>
         <Button fullWidth variant="secondary" onClick={onViewLog}>
-          View log
+          {copy.viewLog}
         </Button>
       </div>
     </div>

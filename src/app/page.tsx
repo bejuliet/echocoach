@@ -1,29 +1,27 @@
 "use client";
 
 import Image from "next/image";
-import { useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Button, LanguageSelector, type Language } from "@/app/components/ui";
+import { Button, LanguageSelector } from "@/app/components/ui";
 import { Logo } from "@/app/components/Logo";
 import { TennisBallIcon } from "@/app/components/TennisBallIcon";
-
-const LANGUAGE_STORAGE_KEY = "echocoach.language";
-const LANGUAGE_CHANGE_EVENT = "echocoach-language-change";
+import { getCopy } from "@/app/lib/i18n";
+import {
+  useLanguagePreference,
+  useSetLanguagePreference,
+} from "@/app/lib/languagePreference";
 
 // Background anchor tuned for a 390 × 844 mobile viewport (DevTools iPhone 14 Pro).
 const HOME_BG_POSITION = "32% 82%";
 
 export default function HomePage() {
   const router = useRouter();
-  const language = useSyncExternalStore(
-    subscribeToLanguagePreference,
-    getLanguagePreference,
-    getServerLanguagePreference,
-  );
+  const language = useLanguagePreference();
+  const setLanguage = useSetLanguagePreference();
+  const copy = getCopy(language).home;
 
-  function handleLanguageChange(nextLanguage: Language) {
-    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
-    window.dispatchEvent(new Event(LANGUAGE_CHANGE_EVENT));
+  function handleLanguageChange(nextLanguage: typeof language) {
+    setLanguage(nextLanguage);
   }
 
   return (
@@ -58,7 +56,7 @@ export default function HomePage() {
 
         <div className="flex flex-1 items-center justify-center px-3 pb-6 text-center">
           <p className="max-w-[17rem] text-sm leading-6 text-black">
-            Capture class notes in one calm flow.
+            {copy.tagline}
           </p>
         </div>
 
@@ -69,7 +67,7 @@ export default function HomePage() {
             onClick={() => router.push("/review")}
             className="min-h-[4.5rem] !bg-gradient-to-b !from-tennis-800 !to-tennis-900 text-base shadow-lg hover:!from-tennis-900 hover:!to-[#0f3d24]"
           >
-            New Class Review
+            {copy.newClassReview}
           </Button>
 
           <nav className="mt-[3.75rem] flex overflow-hidden rounded-2xl bg-[#e8f1e7]/95 shadow-sm backdrop-blur-sm">
@@ -79,7 +77,7 @@ export default function HomePage() {
               className="flex min-h-[3.9rem] flex-1 items-center justify-center gap-2 border-r border-ink-muted/20 px-4 text-sm font-medium text-ink transition-colors hover:bg-white/40"
             >
               <HistoryIcon />
-              History
+              {copy.history}
             </button>
             <div className="flex min-h-[3.9rem] flex-1 items-center justify-center">
               <LanguageSelector
@@ -93,25 +91,6 @@ export default function HomePage() {
       </div>
     </div>
   );
-}
-
-function getLanguagePreference(): Language {
-  const saved = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  return saved === "zh" ? "zh" : "en";
-}
-
-function getServerLanguagePreference(): Language {
-  return "en";
-}
-
-function subscribeToLanguagePreference(onStoreChange: () => void) {
-  window.addEventListener("storage", onStoreChange);
-  window.addEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
-
-  return () => {
-    window.removeEventListener("storage", onStoreChange);
-    window.removeEventListener(LANGUAGE_CHANGE_EVENT, onStoreChange);
-  };
 }
 
 function MicIcon() {

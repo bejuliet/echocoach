@@ -2,6 +2,8 @@
 
 import { Button, PageHeader, StepBar } from "@/app/components/ui";
 import { CelebrationHero } from "@/app/components/CelebrationHero";
+import { getCopy } from "@/app/lib/i18n";
+import { useLanguagePreference } from "@/app/lib/languagePreference";
 
 // Shown after the coach approves the 4th intake answer — "Captured!" with ribbons.
 type CapturedViewProps = {
@@ -23,12 +25,15 @@ export function CapturedView({
   isGenerating,
   error,
 }: CapturedViewProps) {
+  const language = useLanguagePreference();
+  const copy = getCopy(language).review.captured;
+
   return (
     <div className="flex min-h-dvh flex-col bg-card px-5 pb-6">
       <PageHeader onBack={onBack} />
 
       <div className="mt-1">
-        <StepBar current={stepIndex + 1} total={totalSteps} />
+        <StepBar current={stepIndex + 1} total={totalSteps} language={language} />
       </div>
 
       <div className="mt-6 flex flex-col items-center gap-3 text-center">
@@ -40,8 +45,8 @@ export function CapturedView({
 
       <div className="mt-10 flex flex-1 flex-col justify-center">
         <CelebrationHero
-          title="Captured!"
-          subtitle="Great! Let's move to the next one."
+          title={copy.title}
+          subtitle={copy.subtitle}
           variant="captured"
         />
       </div>
@@ -54,11 +59,11 @@ export function CapturedView({
           loading={isGenerating}
           disabled={isGenerating}
         >
-          Continue
+          {copy.continue}
         </Button>
         {isGenerating && (
           <p className="text-center text-sm text-ink-muted">
-            Writing your review message...
+            {copy.generating}
           </p>
         )}
         {error && <p className="text-center text-sm text-red-600">{error}</p>}

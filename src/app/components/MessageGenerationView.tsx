@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -11,6 +11,8 @@ import {
 } from "@/app/components/ui";
 import { TennisBallIcon } from "@/app/components/TennisBallIcon";
 import { CelebrationHero } from "@/app/components/CelebrationHero";
+import { formatCardDate, getCopy } from "@/app/lib/i18n";
+import { useLanguagePreference } from "@/app/lib/languagePreference";
 
 // Message Generation screen — matches Design Concept "Review Ready" panel.
 type MessageGenerationViewProps = {
@@ -36,15 +38,14 @@ export function MessageGenerationView({
   isPolishing,
   error,
 }: MessageGenerationViewProps) {
+  const language = useLanguagePreference();
+  const copy = getCopy(language).review.ready;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [todayTimestamp] = useState(() => Date.now());
 
-  const displayName = studentName.trim() || "Your student";
+  const displayName = studentName.trim() || copy.yourStudent;
   const initials = getInitials(displayName);
-  const todayLabel = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const todayLabel = formatCardDate(language, todayTimestamp);
 
   function focusMessage() {
     textareaRef.current?.focus();
@@ -53,20 +54,20 @@ export function MessageGenerationView({
   return (
     <div className="flex min-h-dvh flex-col bg-canvas px-5 pb-6">
       <PageHeader
-        title="Review Ready"
+        title={copy.pageTitle}
         onBack={onBack}
         action={
           <Button variant="ghost" size="md" onClick={focusMessage}>
-            Edit
+            {copy.edit}
           </Button>
         }
       />
 
-      {/* Success hero — ribbons + "Your message is ready!" from the design concept. */}
+      {/* Success hero — ribbons + localized headline from the design concept. */}
       <div className="mt-2">
         <CelebrationHero
-          title="Your message is ready!"
-          subtitle="Review, edit if needed, and approve."
+          title={copy.heroTitle}
+          subtitle={copy.heroSubtitle}
           variant="ready"
         />
       </div>
@@ -103,7 +104,7 @@ export function MessageGenerationView({
           />
 
           <p className="mt-4 text-sm text-ink-muted">
-            Your Coach,{" "}
+            {copy.coachSignature}{" "}
             <span className="font-semibold text-ink">Tom Tao</span>
             <span className="ml-2 inline-block align-middle">
               <TennisBallIcon className="h-5 w-5" />
@@ -111,7 +112,7 @@ export function MessageGenerationView({
           </p>
 
           {isPolishing && (
-            <p className="mt-3 text-sm text-ink-muted">Rewriting your message...</p>
+            <p className="mt-3 text-sm text-ink-muted">{copy.rewriting}</p>
           )}
         </Card>
 
@@ -128,7 +129,7 @@ export function MessageGenerationView({
           disabled={message.trim().length === 0 || isPolishing}
           className="!bg-gradient-to-b !from-tennis-800 !to-tennis-900 shadow-lg"
         >
-          Approve & Save
+          {copy.approveSave}
         </Button>
         <Button
           fullWidth
@@ -137,7 +138,7 @@ export function MessageGenerationView({
           onClick={focusMessage}
           disabled={isPolishing}
         >
-          Edit Message
+          {copy.editMessage}
         </Button>
         <button
           type="button"
@@ -145,7 +146,7 @@ export function MessageGenerationView({
           disabled={isPolishing}
           className="text-sm font-medium text-tennis-700 underline-offset-4 hover:underline disabled:opacity-50"
         >
-          {isPolishing ? "Regenerating..." : "Regenerate message"}
+          {isPolishing ? copy.regenerating : copy.regenerate}
         </button>
       </div>
     </div>

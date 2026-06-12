@@ -13,9 +13,14 @@ import {
   PageHeader,
 } from "@/app/components/ui";
 import { TennisBallIcon } from "@/app/components/TennisBallIcon";
+import { formatCardDate, getCopy } from "@/app/lib/i18n";
+import { useLanguagePreference } from "@/app/lib/languagePreference";
+import type { Language } from "@/app/components/ui";
 
 export default function LogPage() {
   const router = useRouter();
+  const language = useLanguagePreference();
+  const copy = getCopy(language).log;
 
   // useQuery is reactive: when a new review is saved, this list updates on its own.
   const reviews = useQuery(api.reviews.list);
@@ -32,12 +37,10 @@ export default function LogPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas px-5 pb-8">
-      <PageHeader title="History" onBack={() => router.push("/")} />
+      <PageHeader title={copy.title} onBack={() => router.push("/")} />
 
       <header className="mt-2 flex flex-col gap-1">
-        <p className="text-sm text-ink-muted">
-          Every approved class review, saved for your records.
-        </p>
+        <p className="text-sm text-ink-muted">{copy.subtitle}</p>
       </header>
 
       {/* Dashboard summary — matches the design-system stat cards. */}
@@ -46,29 +49,27 @@ export default function LogPage() {
           <p className="text-2xl font-bold text-tennis-700">
             {isLoading ? "—" : total}
           </p>
-          <CardSubtitle>Reviews saved</CardSubtitle>
+          <CardSubtitle>{copy.reviewsSaved}</CardSubtitle>
         </Card>
         <Card padding="sm">
           <p className="truncate text-2xl font-bold text-tennis-700">
             {isLoading ? "—" : studentCount}
           </p>
-          <CardSubtitle>Students</CardSubtitle>
+          <CardSubtitle>{copy.students}</CardSubtitle>
         </Card>
       </div>
 
       <div className="mt-6 flex flex-1 flex-col gap-4">
         {isLoading ? (
-          <p className="text-sm text-ink-muted">Loading your reviews...</p>
+          <p className="text-sm text-ink-muted">{copy.loading}</p>
         ) : total === 0 ? (
           <Card className="flex flex-col items-start gap-4 border-dashed">
-            <p className="text-sm leading-relaxed text-ink-muted">
-              No reviews yet. Your saved class reviews will appear here.
-            </p>
+            <p className="text-sm leading-relaxed text-ink-muted">{copy.empty}</p>
             <Button
               icon={<MicIcon />}
               onClick={() => router.push("/review")}
             >
-              New Class Review
+              {copy.newClassReview}
             </Button>
           </Card>
         ) : (
@@ -76,6 +77,7 @@ export default function LogPage() {
             {reviews.map((review) => (
               <ReviewCard
                 key={review._id}
+                language={language}
                 studentName={review.studentName}
                 createdAt={review.createdAt}
                 message={review.message}
@@ -94,7 +96,7 @@ export default function LogPage() {
             onClick={() => router.push("/review")}
             className="!bg-gradient-to-b !from-tennis-800 !to-tennis-900 shadow-lg"
           >
-            New Class Review
+            {copy.newClassReview}
           </Button>
         </div>
       )}
@@ -104,25 +106,24 @@ export default function LogPage() {
 
 // One saved review — same card pattern as the Review Ready message preview.
 function ReviewCard({
+  language,
   studentName,
   createdAt,
   message,
 }: {
+  language: Language;
   studentName: string;
   createdAt: number;
   message: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const copy = getCopy(language).log;
 
-  const displayName = studentName.trim() || "Your student";
+  const displayName = studentName.trim() || copy.yourStudent;
   const initials = getInitials(displayName);
-  const dateLabel = new Date(createdAt).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const dateLabel = formatCardDate(language, createdAt);
 
-  async function copy() {
+  async function copyMessage() {
     await navigator.clipboard.writeText(message);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -157,9 +158,9 @@ function ReviewCard({
             variant="secondary"
             size="md"
             icon={<CopyIcon />}
-            onClick={copy}
+            onClick={copyMessage}
           >
-            {copied ? "Copied!" : "Copy message"}
+            {copied ? copy.copied : copy.copyMessage}
           </Button>
         </div>
       </Card>
