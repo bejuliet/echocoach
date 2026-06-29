@@ -12,6 +12,13 @@ import {
   startRecording,
   type RecordingSession,
 } from "@/app/lib/recordAudio";
+import {
+  buildTranscribeReport,
+  createStopwatch,
+  isVoiceTimingEnabled,
+  logVoiceTiming,
+  type VoiceTimingReport,
+} from "@/app/lib/voiceTiming";
 
 // One question's voice capture flow — matches Design Concept states:
 // Listening → Transcribing → Generated (Looks Good / Edit). No Cancel, no Confirmed screen.
@@ -21,6 +28,8 @@ type VoiceInputProps = {
   onApprove: () => void;
   onStageChange?: (stage: Stage) => void;
   stepKey?: "studentName" | "whatWeDid" | "progress" | "nextSteps";
+  /** Phase 0: optional callback when a transcribe timing report is ready. */
+  onTimingReport?: (report: VoiceTimingReport) => void;
 };
 
 function formatTranscribeError(err: unknown, fallback: string): string {
@@ -38,6 +47,7 @@ export function VoiceInput({
   onApprove,
   onStageChange,
   stepKey,
+  onTimingReport,
 }: VoiceInputProps) {
   const language = useLanguagePreference();
   const copy = getCopy(language).review.voice;
@@ -50,6 +60,7 @@ export function VoiceInput({
   const [error, setError] = useState<string | null>(null);
 
   const sessionRef = useRef<RecordingSession | null>(null);
+  const timingRef = useRef<ReturnType<typeof createStopwatch> | null>(null);
 
   const isRecording = status === "recording";
   const isTranscribing = status === "transcribing";
@@ -72,11 +83,16 @@ export function VoiceInput({
   async function startMic() {
     setError(null);
     try {
+      if (isVoiceTimingEnabled()) {
+        timingRef.current = createStopwatch();
+        timingRef.current.mark("recordingStarted");
+      }
       sessionRef.current = await startRecording();
       setStatus("recording");
     } catch {
       setError(copy.micBlocked);
       setStatus("idle");
+      timingRef.current = null;
     }
   }
 
@@ -85,28 +101,50 @@ export function VoiceInput({
     sessionRef.current = null;
     if (!session) return;
 
+    const sw = timingRef.current;
+    sw?.mark("stopPressed");
+
     setStatus("transcribing");
     try {
       const { blob, mimeType } = await session.stop();
+      sw?.mark("blobReady");
 
       if (blob.size === 0) {
         setError(copy.transcribeFailed);
         setStatus("idle");
+        timingRef.current = null;
         return;
       }
 
       const audio = await blob.arrayBuffer();
+      sw?.mark("bufferReady");
+
       const text = await transcribe({
         audio,
         mimeType,
         language: getLanguagePreference(),
       });
+      sw?.mark("transcribeDone");
+
       const next = value ? `${value.trim()} ${text}`.trim() : text;
       onChange(next);
+      sw?.mark("uiDone");
+
+      if (sw && isVoiceTimingEnabled()) {
+        const report = buildTranscribeReport(sw, {
+          stepKey: stepKey ?? "unknown",
+          mimeType,
+          byteLength: blob.size,
+          platform: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 60) : "",
+        });
+        logVoiceTiming(report);
+        onTimingReport?.(report);
+      }
     } catch (err) {
       setError(formatTranscribeError(err, copy.transcribeFailed));
     } finally {
       setStatus("idle");
+      timingRef.current = null;
     }
   }
 

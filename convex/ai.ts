@@ -10,6 +10,22 @@ import { ConvexError, v } from "convex/values";
 
 const OPENAI_BASE = "https://api.openai.com/v1";
 
+/** Phase 0: structured timing logs — search "transcribe_timing" or "polish_timing" in Convex dashboard. */
+function logActionTiming(
+  event: "transcribe_timing" | "polish_timing",
+  stagesMs: Record<string, number>,
+  meta: Record<string, string | number>,
+) {
+  console.log(
+    JSON.stringify({
+      event,
+      at: new Date().toISOString(),
+      stagesMs,
+      meta,
+    }),
+  );
+}
+
 // Small helper so every function fails with a clear message if the key is missing.
 function getApiKey(): string {
   const key = process.env.OPENAI_API_KEY;
@@ -30,6 +46,7 @@ export const transcribe = action({
     language: v.union(v.literal("en"), v.literal("zh")),
   },
   handler: async (_ctx, args) => {
+    const t0 = Date.now();
     const meta = {
       byteLength: args.audio.byteLength,
       mimeType: args.mimeType,
@@ -56,14 +73,23 @@ export const transcribe = action({
       form.append("model", "whisper-1");
       // Let Whisper auto-detect speech language — coaches may mix English and Chinese.
 
+      const tPrepDone = Date.now();
+
       const res = await fetch(`${OPENAI_BASE}/audio/transcriptions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}` },
         body: form,
       });
 
+      const tWhisperDone = Date.now();
+
       if (!res.ok) {
         const detail = await res.text();
+        logActionTiming("transcribe_timing", {
+          prepMs: tPrepDone - t0,
+          whisperMs: tWhisperDone - tPrepDone,
+          totalMs: tWhisperDone - t0,
+        }, { ...meta, ok: 0, status: res.status });
         throw new ConvexError({
           ...meta,
           message: `Whisper transcription failed (${res.status}): ${detail.slice(0, 200)}`,
@@ -71,6 +97,15 @@ export const transcribe = action({
       }
 
       const data = (await res.json()) as { text: string };
+      const tDone = Date.now();
+
+      logActionTiming("transcribe_timing", {
+        prepMs: tPrepDone - t0,
+        whisperMs: tWhisperDone - tPrepDone,
+        parseMs: tDone - tWhisperDone,
+        totalMs: tDone - t0,
+      }, { ...meta, ok: 1 });
+
       return data.text.trim();
     } catch (err) {
       if (err instanceof ConvexError) throw err;
@@ -112,6 +147,7 @@ export const polish = action({
     language: v.union(v.literal("en"), v.literal("zh")),
   },
   handler: async (_ctx, args) => {
+    const t0 = Date.now();
     const apiKey = getApiKey();
 
     const systemPrompt =
@@ -120,6 +156,7 @@ export const polish = action({
         : buildEnglishSystemPrompt(args.today);
 
     const userPrompt = buildUserPrompt(args);
+    const tPrepDone = Date.now();
 
     const res = await fetch(`${OPENAI_BASE}/chat/completions`, {
       method: "POST",
@@ -138,14 +175,30 @@ export const polish = action({
       }),
     });
 
+    const tGptDone = Date.now();
+
     if (!res.ok) {
       const detail = await res.text();
+      logActionTiming("polish_timing", {
+        prepMs: tPrepDone - t0,
+        gptMs: tGptDone - tPrepDone,
+        totalMs: tGptDone - t0,
+      }, { language: args.language, ok: 0, status: res.status });
       throw new Error(`Message polishing failed (${res.status}): ${detail}`);
     }
 
     const data = (await res.json()) as {
       choices: { message: { content: string } }[];
     };
+    const tDone = Date.now();
+
+    logActionTiming("polish_timing", {
+      prepMs: tPrepDone - t0,
+      gptMs: tGptDone - tPrepDone,
+      parseMs: tDone - tGptDone,
+      totalMs: tDone - t0,
+    }, { language: args.language, ok: 1 });
+
     return data.choices[0]?.message.content.trim() ?? "";
   },
 });
