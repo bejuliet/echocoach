@@ -36,6 +36,7 @@ const COPY = {
       ] as StepQuestion[],
       voice: {
         listening: "Listening... Speak naturally. We're capturing your notes.",
+        processingAudio: "Processing audio...",
         transcribing: "Transcribing... Turning your voice into text.",
         idle: "Tap the microphone to speak, or type below.",
         placeholderDefault: "Or type your answer here...",
@@ -118,6 +119,7 @@ const COPY = {
       ] as StepQuestion[],
       voice: {
         listening: "正在聆听……请自然说话，我们会记录您的反馈。",
+        processingAudio: "正在处理音频……",
         transcribing: "正在转写……正在将语音转换为文字。",
         idle: "点击麦克风说话，或在下方输入文字。",
         placeholderDefault: "或在此输入您的回答……",

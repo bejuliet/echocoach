@@ -55,7 +55,7 @@ export function VoiceInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const [status, setStatus] = useState<
-    "idle" | "recording" | "transcribing"
+    "idle" | "recording" | "processing" | "transcribing"
   >("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -63,7 +63,9 @@ export function VoiceInput({
   const timingRef = useRef<ReturnType<typeof createStopwatch> | null>(null);
 
   const isRecording = status === "recording";
+  const isProcessing = status === "processing";
   const isTranscribing = status === "transcribing";
+  const isBusy = isProcessing || isTranscribing;
   const hasText = value.trim().length > 0;
   const showGenerated = hasText && status === "idle";
   const placeholder =
@@ -75,10 +77,10 @@ export function VoiceInput({
   useEffect(() => {
     if (!onStageChange) return;
     if (isRecording) onStageChange("listening");
-    else if (isTranscribing) onStageChange("transcribing");
+    else if (isBusy) onStageChange("transcribing");
     else if (hasText) onStageChange("generated");
     else onStageChange("listening");
-  }, [isRecording, isTranscribing, hasText, onStageChange]);
+  }, [isRecording, isBusy, hasText, onStageChange]);
 
   async function startMic() {
     setError(null);
@@ -104,7 +106,7 @@ export function VoiceInput({
     const sw = timingRef.current;
     sw?.mark("stopPressed");
 
-    setStatus("transcribing");
+    setStatus("processing");
     try {
       const { blob, mimeType } = await session.stop();
       sw?.mark("blobReady");
@@ -118,6 +120,8 @@ export function VoiceInput({
 
       const audio = await blob.arrayBuffer();
       sw?.mark("bufferReady");
+
+      setStatus("transcribing");
 
       const text = await transcribe({
         audio,
@@ -149,7 +153,7 @@ export function VoiceInput({
   }
 
   function handleMicPress() {
-    if (isTranscribing) return;
+    if (isBusy) return;
     if (isRecording) void stopMic();
     else void startMic();
   }
@@ -162,7 +166,7 @@ export function VoiceInput({
           <button
             type="button"
             onClick={handleMicPress}
-            disabled={isTranscribing}
+            disabled={isBusy}
             aria-label={isRecording ? copy.micStop : copy.micStart}
             className="relative flex h-44 w-44 items-center justify-center disabled:opacity-60"
           >
@@ -173,7 +177,7 @@ export function VoiceInput({
               </>
             )}
             <span className="relative flex h-28 w-28 items-center justify-center rounded-full bg-tennis-700 text-white shadow-lg">
-              {isTranscribing ? (
+              {isBusy ? (
                 <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               ) : (
                 <MicIcon className="h-10 w-10" />
@@ -182,15 +186,17 @@ export function VoiceInput({
           </button>
 
           <p className="max-w-[16rem] text-sm leading-6 text-ink-muted">
-            {isTranscribing
-              ? copy.transcribing
-              : isRecording
-                ? copy.listening
-                : copy.idle}
+            {isProcessing
+              ? copy.processingAudio
+              : isTranscribing
+                ? copy.transcribing
+                : isRecording
+                  ? copy.listening
+                  : copy.idle}
           </p>
 
           {/* Allow typing before first recording. */}
-          {!isRecording && !isTranscribing && (
+          {!isRecording && !isBusy && (
             <textarea
               ref={textareaRef}
               value={value}

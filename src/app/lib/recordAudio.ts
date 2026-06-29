@@ -1,6 +1,9 @@
 // Voice capture helpers. iOS Safari's MediaRecorder mp4 output is often rejected
 // by Whisper, so Apple devices record PCM and encode a standard WAV file instead.
 
+/** Whisper internally uses 16 kHz — downsampling before upload cuts file size ~3x. */
+const WHISPER_SAMPLE_RATE = 16000;
+
 export type RecordingSession = {
   stop: () => Promise<{ blob: Blob; mimeType: string }>;
 };
@@ -71,8 +74,15 @@ async function startWavRecording(stream: MediaStream): Promise<RecordingSession>
         offset += chunk.length;
       }
 
+      // Downsample to 16 kHz so uploads are smaller without losing speech quality.
+      const forWhisper = downsampleToRate(
+        merged,
+        sampleRate,
+        WHISPER_SAMPLE_RATE,
+      );
+
       return {
-        blob: encodeWav(merged, sampleRate),
+        blob: encodeWav(forWhisper, WHISPER_SAMPLE_RATE),
         mimeType: "audio/wav",
       };
     },
@@ -118,6 +128,30 @@ function writeAscii(view: DataView, offset: number, text: string) {
   for (let i = 0; i < text.length; i++) {
     view.setUint8(offset + i, text.charCodeAt(i));
   }
+}
+
+/** Reduce sample rate (e.g. 48 kHz → 16 kHz) using linear interpolation. */
+function downsampleToRate(
+  samples: Float32Array,
+  sourceRate: number,
+  targetRate: number,
+): Float32Array {
+  if (sourceRate <= targetRate) return samples;
+
+  const ratio = sourceRate / targetRate;
+  const length = Math.floor(samples.length / ratio);
+  const result = new Float32Array(length);
+
+  for (let i = 0; i < length; i++) {
+    const srcIndex = i * ratio;
+    const idx = Math.floor(srcIndex);
+    const frac = srcIndex - idx;
+    const s0 = samples[idx] ?? 0;
+    const s1 = samples[idx + 1] ?? s0;
+    result[i] = s0 + frac * (s1 - s0);
+  }
+
+  return result;
 }
 
 // --- MediaRecorder path (desktop / Android Chrome) ------------------------
