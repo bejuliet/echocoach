@@ -58,6 +58,8 @@ export function VoiceInput({
     "idle" | "recording" | "processing" | "transcribing"
   >("idle");
   const [error, setError] = useState<string | null>(null);
+  // True once the user focuses the textarea — keeps layout stable while typing.
+  const [typingMode, setTypingMode] = useState(false);
 
   const sessionRef = useRef<RecordingSession | null>(null);
   const timingRef = useRef<ReturnType<typeof createStopwatch> | null>(null);
@@ -67,11 +69,23 @@ export function VoiceInput({
   const isTranscribing = status === "transcribing";
   const isBusy = isProcessing || isTranscribing;
   const hasText = value.trim().length > 0;
-  const showGenerated = hasText && status === "idle";
+  const showTextarea = !isRecording && !isBusy;
+  const showActions = hasText && status === "idle";
   const placeholder =
     stepKey === "studentName"
       ? copy.placeholderStudentName
       : copy.placeholderDefault;
+
+  function handleTextChange(next: string) {
+    if (!next.trim()) {
+      // Back to voice-first UI if the user clears the field entirely.
+      setTypingMode(false);
+    } else {
+      // Any typed input keeps the stable layout (voice uses onChange directly).
+      setTypingMode(true);
+    }
+    onChange(next);
+  }
 
   // Tell the parent which stage to highlight in the bottom StageTracker.
   useEffect(() => {
@@ -158,71 +172,64 @@ export function VoiceInput({
     else void startMic();
   }
 
+  const statusMessage = isProcessing
+    ? copy.processingAudio
+    : isTranscribing
+      ? copy.transcribing
+      : isRecording
+        ? copy.listening
+        : copy.idle;
+
   return (
-    <div className="flex flex-1 flex-col">
-      {/* Listening or transcribing — large center circle from the mockup. */}
-      {!showGenerated && (
-        <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
-          <button
-            type="button"
-            onClick={handleMicPress}
-            disabled={isBusy}
-            aria-label={isRecording ? copy.micStop : copy.micStart}
-            className="relative flex h-44 w-44 items-center justify-center disabled:opacity-60"
-          >
-            {isRecording && (
-              <>
-                <span className="absolute inset-2 animate-ping rounded-full bg-tennis-500/25" />
-                <span className="absolute inset-5 animate-pulse rounded-full bg-tennis-200/80" />
-              </>
-            )}
-            <span className="relative flex h-28 w-28 items-center justify-center rounded-full bg-tennis-700 text-white shadow-lg">
-              {isBusy ? (
-                <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              ) : (
-                <MicIcon className="h-10 w-10" />
-              )}
-            </span>
-          </button>
-
-          <p className="max-w-[16rem] text-sm leading-6 text-ink-muted">
-            {isProcessing
-              ? copy.processingAudio
-              : isTranscribing
-                ? copy.transcribing
-                : isRecording
-                  ? copy.listening
-                  : copy.idle}
-          </p>
-
-          {/* Allow typing before first recording. */}
-          {!isRecording && !isBusy && (
-            <textarea
-              ref={textareaRef}
-              value={value}
-              onChange={(e) => onChange(e.target.value)}
-              placeholder={placeholder}
-              rows={3}
-              className="w-full resize-none rounded-2xl border border-line bg-canvas px-4 py-3 text-sm leading-relaxed text-ink outline-none focus:ring-2 focus:ring-tennis-700/30"
-            />
+    <div className="flex flex-1 flex-col gap-5 pt-4">
+      {/* Mic stays visible while idle (even when typing) so nothing jumps. */}
+      <div className="flex flex-col items-center gap-5 text-center">
+        <button
+          type="button"
+          onClick={handleMicPress}
+          disabled={isBusy}
+          aria-label={isRecording ? copy.micStop : copy.micStart}
+          className="relative flex h-44 w-44 items-center justify-center disabled:opacity-60"
+        >
+          {isRecording && (
+            <>
+              <span className="absolute inset-2 animate-ping rounded-full bg-tennis-500/25" />
+              <span className="absolute inset-5 animate-pulse rounded-full bg-tennis-200/80" />
+            </>
           )}
-        </div>
+          <span className="relative flex h-28 w-28 items-center justify-center rounded-full bg-tennis-700 text-white shadow-lg">
+            {isBusy ? (
+              <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <MicIcon className="h-10 w-10" />
+            )}
+          </span>
+        </button>
+
+        <p className="max-w-[16rem] text-sm leading-6 text-ink-muted">
+          {statusMessage}
+        </p>
+      </div>
+
+      {/* Single textarea — same element and styling throughout; hidden only while recording. */}
+      {showTextarea && (
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => handleTextChange(e.target.value)}
+          onFocus={() => setTypingMode(true)}
+          placeholder={placeholder}
+          rows={4}
+          className="w-full resize-y rounded-2xl border border-line bg-canvas px-4 py-4 text-base leading-relaxed text-ink outline-none focus:ring-2 focus:ring-tennis-700/30"
+        />
       )}
 
-      {/* Generated — transcript with Looks Good + Edit. */}
-      {showGenerated && (
-        <div className="flex flex-1 flex-col gap-4">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            rows={6}
-            className="w-full resize-y rounded-2xl border border-line bg-canvas px-4 py-4 text-base leading-relaxed text-ink outline-none focus:ring-2 focus:ring-tennis-700/30"
-          />
-          <div className="flex flex-col gap-3">
-            <Button fullWidth onClick={onApprove}>
-              {copy.looksGood}
-            </Button>
+      {showActions && (
+        <div className="flex flex-col gap-3">
+          <Button fullWidth onClick={onApprove}>
+            {copy.looksGood}
+          </Button>
+          {!typingMode && (
             <Button
               fullWidth
               variant="secondary"
@@ -231,11 +238,11 @@ export function VoiceInput({
             >
               {copy.edit}
             </Button>
-          </div>
+          )}
         </div>
       )}
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );
 }
