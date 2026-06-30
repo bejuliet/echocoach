@@ -11,7 +11,12 @@ export async function shareClassReviewMessage(
 
   if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
     try {
-      await navigator.share({ text: body });
+      // WeChat iOS rejects text-only shares; including a URL satisfies its extension.
+      await navigator.share({
+        title: "EchoCoach Class Review",
+        text: body,
+        url: window.location.origin,
+      });
       return "shared";
     } catch (err) {
       // User dismissed the share sheet — not an error.
