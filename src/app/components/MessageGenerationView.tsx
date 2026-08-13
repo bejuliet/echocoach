@@ -17,6 +17,7 @@ import { useLanguagePreference } from "@/app/lib/languagePreference";
 // Message Generation screen — matches Design Concept "Review Ready" panel.
 type MessageGenerationViewProps = {
   studentName: string;
+  classNumber: number | undefined;
   message: string;
   onMessageChange: (value: string) => void;
   onBack: () => void;
@@ -29,6 +30,7 @@ type MessageGenerationViewProps = {
 
 export function MessageGenerationView({
   studentName,
+  classNumber,
   message,
   onMessageChange,
   onBack,
@@ -82,7 +84,14 @@ export function MessageGenerationView({
               </span>
             }
             trailing={
-              <TennisBallIcon className="h-7 w-7 shrink-0" />
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <TennisBallIcon className="h-7 w-7" />
+                <span className="text-xs font-medium text-tennis-800">
+                  {classNumber === undefined
+                    ? copy.classTakenLoading
+                    : copy.classTaken(classNumber)}
+                </span>
+              </div>
             }
           >
             <CardTitle>{displayName}</CardTitle>

@@ -34,6 +34,12 @@ const COPY = {
         { key: "progress", label: "What was the progress?" },
         { key: "nextSteps", label: "What are the next steps and practice?" },
       ] as StepQuestion[],
+      studentSelect: {
+        placeholder: "Select a student",
+        loading: "Loading students...",
+        empty: "No active students are available.",
+        continue: "Continue",
+      },
       voice: {
         listening: "Listening... Speak naturally. We're capturing your notes.",
         processingAudio: "Processing audio...",
@@ -67,6 +73,8 @@ const COPY = {
         editMessage: "Edit Message",
         regenerate: "Regenerate message",
         regenerating: "Regenerating...",
+        classTaken: (classNumber: number) => `Class taken: ${classNumber}`,
+        classTakenLoading: "Class taken: —",
       },
       saved: {
         title: "Saved to your log",
@@ -93,6 +101,15 @@ const COPY = {
       copyMessage: "Copy message",
       copied: "Copied!",
       yourStudent: "Your student",
+      filterByStudent: "Filter by student",
+      allStudents: "All students",
+      noFilteredReviews: "No reviews found for this student.",
+      delete: "Delete",
+      deleting: "Deleting...",
+      confirmDelete: (name: string) =>
+        `Delete the saved review for ${name}? This cannot be undone.`,
+      deleteFailed: "Could not delete the review. Please try again.",
+      classTaken: (classNumber: number) => `Class taken: ${classNumber}`,
     },
   },
   zh: {
@@ -117,6 +134,12 @@ const COPY = {
         { key: "progress", label: "学员有哪些进步？" },
         { key: "nextSteps", label: "下一步和练习建议是什么？" },
       ] as StepQuestion[],
+      studentSelect: {
+        placeholder: "选择学员",
+        loading: "正在加载学员……",
+        empty: "目前没有可选的活跃学员。",
+        continue: "继续",
+      },
       voice: {
         listening: "正在聆听……请自然说话，我们会记录您的反馈。",
         processingAudio: "正在处理音频……",
@@ -149,6 +172,8 @@ const COPY = {
         editMessage: "编辑反馈",
         regenerate: "重新生成反馈",
         regenerating: "正在重新生成……",
+        classTaken: (classNumber: number) => `已上课程：${classNumber}`,
+        classTakenLoading: "已上课程：—",
       },
       saved: {
         title: "已保存到历史记录",
@@ -174,6 +199,15 @@ const COPY = {
       copyMessage: "复制反馈",
       copied: "已复制！",
       yourStudent: "您的学员",
+      filterByStudent: "按学员筛选",
+      allStudents: "所有学员",
+      noFilteredReviews: "没有找到该学员的反馈。",
+      delete: "删除",
+      deleting: "正在删除……",
+      confirmDelete: (name: string) =>
+        `确定要删除 ${name} 的已保存反馈吗？此操作无法撤销。`,
+      deleteFailed: "无法删除反馈，请重试。",
+      classTaken: (classNumber: number) => `已上课程：${classNumber}`,
     },
   },
 } as const;

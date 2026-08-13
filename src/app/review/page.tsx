@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { VoiceInput } from "../components/VoiceInput";
 import { CapturedView } from "../components/CapturedView";
@@ -10,6 +10,7 @@ import { MessageGenerationView } from "../components/MessageGenerationView";
 import { ReviewSavedView } from "../components/ReviewSavedView";
 import {
   PageHeader,
+  Button,
   StepBar,
   StageTracker,
   type Stage,
@@ -50,10 +51,12 @@ export default function ReviewPage() {
 
   const polish = useAction(api.ai.polish);
   const createReview = useMutation(api.reviews.create);
+  const activeStudents = useQuery(api.students.listActive);
 
   const [phase, setPhase] = useState<Phase>("collect");
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
+  const [studentId, setStudentId] = useState("");
   const [captureStage, setCaptureStage] = useState<Stage>("listening");
 
   const [message, setMessage] = useState("");
@@ -62,6 +65,10 @@ export default function ReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
   const [timingReports, setTimingReports] = useState<VoiceTimingReport[]>([]);
+  const nextClassNumber = useQuery(
+    api.reviews.nextClassNumber,
+    studentId ? { studentId } : "skip",
+  );
 
   const currentStep = steps[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
@@ -136,7 +143,7 @@ export default function ReviewPage() {
     setError(null);
     setIsSaving(true);
     try {
-      await createReview({ ...answers, message });
+      await createReview({ ...answers, studentId, message });
       const outcome = await shareClassReviewMessage(message);
       setShareNotice(
         outcome === "copied" ? copy.saved.shareCopiedNotice : null,
@@ -151,6 +158,7 @@ export default function ReviewPage() {
 
   function startOver() {
     setAnswers(EMPTY_ANSWERS);
+    setStudentId("");
     setMessage("");
     setStepIndex(0);
     setError(null);
@@ -180,19 +188,37 @@ export default function ReviewPage() {
             </h2>
           </div>
 
-          <VoiceInput
-            key={currentStep.key}
-            value={answers[currentStep.key]}
-            onChange={(v) => setAnswer(currentStep.key, v)}
-            onApprove={approveStep}
-            onStageChange={setCaptureStage}
-            stepKey={currentStep.key}
-            onTimingReport={appendTimingReport}
-          />
+          {currentStep.key === "studentName" ? (
+            <StudentSelector
+              students={activeStudents}
+              studentId={studentId}
+              onChange={(nextStudentId) => {
+                const student = activeStudents?.find(
+                  (item) => item.studentId === nextStudentId,
+                );
+                setStudentId(nextStudentId);
+                setAnswer("studentName", student?.name ?? "");
+              }}
+              onContinue={approveStep}
+              copy={copy.studentSelect}
+            />
+          ) : (
+            <>
+              <VoiceInput
+                key={currentStep.key}
+                value={answers[currentStep.key]}
+                onChange={(v) => setAnswer(currentStep.key, v)}
+                onApprove={approveStep}
+                onStageChange={setCaptureStage}
+                stepKey={currentStep.key}
+                onTimingReport={appendTimingReport}
+              />
 
-          <div className="mt-6 border-t border-line pt-4">
-            <StageTracker active={captureStage} language={language} />
-          </div>
+              <div className="mt-6 border-t border-line pt-4">
+                <StageTracker active={captureStage} language={language} />
+              </div>
+            </>
+          )}
         </div>
         <VoiceTimingPanel
           reports={timingReports}
@@ -229,6 +255,7 @@ export default function ReviewPage() {
     return (
       <MessageGenerationView
         studentName={answers.studentName}
+        classNumber={nextClassNumber}
         message={message}
         onMessageChange={setMessage}
         onBack={() => {
@@ -250,6 +277,63 @@ export default function ReviewPage() {
       onStartOver={startOver}
       onViewLog={() => router.push("/log")}
     />
+  );
+}
+
+function StudentSelector({
+  students,
+  studentId,
+  onChange,
+  onContinue,
+  copy,
+}: {
+  students: { studentId: string; name: string }[] | undefined;
+  studentId: string;
+  onChange: (studentId: string) => void;
+  onContinue: () => void;
+  copy: {
+    placeholder: string;
+    loading: string;
+    empty: string;
+    continue: string;
+  };
+}) {
+  const isLoading = students === undefined;
+
+  return (
+    <div className="flex flex-1 flex-col justify-center gap-5 py-8">
+      <div className="rounded-3xl border border-line bg-canvas p-5 shadow-sm">
+        <label
+          htmlFor="student-select"
+          className="mb-2 block text-sm font-medium text-ink"
+        >
+          {copy.placeholder}
+        </label>
+        <select
+          id="student-select"
+          value={studentId}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={isLoading || (students?.length ?? 0) === 0}
+          className="min-h-14 w-full rounded-2xl border border-line bg-card px-4 text-base text-ink shadow-sm outline-none focus:border-tennis-700 focus:ring-2 focus:ring-tennis-700/20 disabled:opacity-60"
+        >
+          <option value="">
+            {isLoading ? copy.loading : copy.placeholder}
+          </option>
+          {students?.map((student) => (
+            <option key={student.studentId} value={student.studentId}>
+              {student.name}
+            </option>
+          ))}
+        </select>
+        {!isLoading && (students?.length ?? 0) === 0 && (
+          <p className="mt-3 text-sm text-ink-muted">{copy.empty}</p>
+        )}
+      </div>
+
+      <Button fullWidth onClick={onContinue} disabled={!studentId}>
+        {copy.continue}
+      </Button>
+    </div>
   );
 }
 

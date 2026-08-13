@@ -10,6 +10,8 @@
 
 import type * as ai from "../ai.js";
 import type * as reviews from "../reviews.js";
+import type * as studentFoundation from "../studentFoundation.js";
+import type * as students from "../students.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +22,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   reviews: typeof reviews;
+  studentFoundation: typeof studentFoundation;
+  students: typeof students;
 }>;
 
 /**
