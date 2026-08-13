@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import {
   Button,
   Card,
@@ -21,6 +22,7 @@ export default function LogPage() {
   const router = useRouter();
   const language = useLanguagePreference();
   const copy = getCopy(language).log;
+  const [selectedStudent, setSelectedStudent] = useState("");
 
   // useQuery is reactive: when a new review is saved, this list updates on its own.
   const reviews = useQuery(api.reviews.list);
@@ -28,12 +30,41 @@ export default function LogPage() {
   const isLoading = reviews === undefined;
   const total = reviews?.length ?? 0;
 
-  // Count how many different students appear in the log.
-  const studentCount = useMemo(() => {
-    if (!reviews) return 0;
-    return new Set(reviews.map((review) => review.studentName.trim().toLowerCase()))
-      .size;
-  }, [reviews]);
+  // Student names are stored as one free-form string per review. Keep group
+  // labels (for example, "Emma and Noah") intact rather than guessing how to
+  // split them into separate people.
+  const studentOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const review of reviews ?? []) {
+      const displayName = review.studentName.trim() || copy.yourStudent;
+      const key = normalizeStudentName(displayName);
+      if (!names.has(key)) names.set(key, displayName);
+    }
+    return Array.from(names, ([value, label]) => ({ value, label })).sort(
+      (a, b) =>
+        a.label.localeCompare(
+          b.label,
+          language === "zh" ? "zh-CN" : "en-US",
+        ),
+    );
+  }, [copy.yourStudent, language, reviews]);
+
+  const activeStudent = studentOptions.some(
+    (student) => student.value === selectedStudent,
+  )
+    ? selectedStudent
+    : "";
+
+  const filteredReviews = useMemo(() => {
+    if (!reviews || !activeStudent) return reviews ?? [];
+    return reviews.filter(
+      (review) =>
+        normalizeStudentName(review.studentName.trim() || copy.yourStudent) ===
+        activeStudent,
+    );
+  }, [activeStudent, copy.yourStudent, reviews]);
+
+  const studentCount = studentOptions.length;
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas px-5 pb-8">
@@ -73,17 +104,51 @@ export default function LogPage() {
             </Button>
           </Card>
         ) : (
-          <ul className="flex flex-col gap-4">
-            {reviews.map((review) => (
-              <ReviewCard
-                key={review._id}
-                language={language}
-                studentName={review.studentName}
-                createdAt={review.createdAt}
-                message={review.message}
-              />
-            ))}
-          </ul>
+          <>
+            <div>
+              <label
+                htmlFor="student-filter"
+                className="mb-2 block text-sm font-medium text-ink"
+              >
+                {copy.filterByStudent}
+              </label>
+              <select
+                id="student-filter"
+                value={activeStudent}
+                onChange={(event) => setSelectedStudent(event.target.value)}
+                className="min-h-11 w-full rounded-2xl border border-line bg-card px-4 text-sm text-ink shadow-sm outline-none focus:border-tennis-700 focus:ring-2 focus:ring-tennis-700/20"
+              >
+                <option value="">{copy.allStudents}</option>
+                {studentOptions.map((student) => (
+                  <option key={student.value} value={student.value}>
+                    {student.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {filteredReviews.length === 0 ? (
+              <Card className="border-dashed">
+                <p className="text-sm text-ink-muted">
+                  {copy.noFilteredReviews}
+                </p>
+              </Card>
+            ) : (
+              <ul className="flex flex-col gap-4">
+                {filteredReviews.map((review) => (
+                  <ReviewCard
+                    key={review._id}
+                    reviewId={review._id}
+                    language={language}
+                    studentName={review.studentName}
+                    classNumber={review.classNumber}
+                    createdAt={review.createdAt}
+                    message={review.message}
+                  />
+                ))}
+              </ul>
+            )}
+          </>
         )}
       </div>
 
@@ -106,17 +171,23 @@ export default function LogPage() {
 
 // One saved review — same card pattern as the Review Ready message preview.
 function ReviewCard({
+  reviewId,
   language,
   studentName,
+  classNumber,
   createdAt,
   message,
 }: {
+  reviewId: Id<"reviews">;
   language: Language;
   studentName: string;
+  classNumber?: number;
   createdAt: number;
   message: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const removeReview = useMutation(api.reviews.remove);
   const copy = getCopy(language).log;
 
   const displayName = studentName.trim() || copy.yourStudent;
@@ -129,6 +200,18 @@ function ReviewCard({
     setTimeout(() => setCopied(false), 1500);
   }
 
+  async function deleteReview() {
+    if (!window.confirm(copy.confirmDelete(displayName))) return;
+
+    setIsDeleting(true);
+    try {
+      await removeReview({ reviewId });
+    } catch {
+      window.alert(copy.deleteFailed);
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <li>
       <Card>
@@ -138,7 +221,16 @@ function ReviewCard({
               {initials}
             </span>
           }
-          trailing={<TennisBallIcon className="h-7 w-7 shrink-0" />}
+          trailing={
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <TennisBallIcon className="h-7 w-7" />
+              {classNumber !== undefined && (
+                <span className="text-xs font-medium text-tennis-800">
+                  {copy.classTaken(classNumber)}
+                </span>
+              )}
+            </div>
+          }
         >
           <CardTitle>{displayName}</CardTitle>
           <CardSubtitle>
@@ -153,7 +245,7 @@ function ReviewCard({
           {message}
         </p>
 
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
             size="md"
@@ -162,10 +254,22 @@ function ReviewCard({
           >
             {copied ? copy.copied : copy.copyMessage}
           </Button>
+          <Button
+            variant="danger"
+            size="md"
+            onClick={deleteReview}
+            loading={isDeleting}
+          >
+            {isDeleting ? copy.deleting : copy.delete}
+          </Button>
         </div>
       </Card>
     </li>
   );
+}
+
+function normalizeStudentName(name: string): string {
+  return name.trim().toLocaleLowerCase();
 }
 
 function getInitials(name: string): string {
