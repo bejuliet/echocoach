@@ -40,7 +40,7 @@ const INITIAL_STUDENTS: StudentSeed[] = [
   },
   {
     studentId: "stu_Silias",
-    name: "Silias",
+    name: "Silas",
     status: "Active",
     startDate: "2026-08-12",
     baselineClassesTaken: 1,
@@ -87,6 +87,14 @@ const INITIAL_STUDENTS: StudentSeed[] = [
     baselineThroughDate: BASELINE_THROUGH_DATE,
     notes: "potential comeback in Sept 2026",
   },
+  {
+    studentId: "stu_Abby",
+    name: "Abby",
+    status: "Active",
+    startDate: "2026-08-15",
+    baselineClassesTaken: 0,
+    baselineThroughDate: BASELINE_THROUGH_DATE,
+  },
 ];
 
 const INITIAL_CLASSES: ClassSeed[] = [
@@ -100,7 +108,7 @@ const INITIAL_CLASSES: ClassSeed[] = [
   },
   {
     classId: "class_Harper_Silias",
-    displayName: "Harper & Silias Class",
+    displayName: "Harper & Silas Class",
     memberStudentIds: ["stu_Harper", "stu_Silias"],
     classType: "1:2",
     status: "Active",
@@ -127,6 +135,14 @@ const INITIAL_CLASSES: ClassSeed[] = [
     displayName: "Griz & Eluna Class",
     memberStudentIds: ["stu_Griz", "stu_Eluna"],
     classType: "1:2",
+    status: "Active",
+    cycle: "Weekly",
+  },
+  {
+    classId: "class_Abby",
+    displayName: "Abby Class",
+    memberStudentIds: ["stu_Abby"],
+    classType: "1:1",
     status: "Active",
     cycle: "Weekly",
   },
