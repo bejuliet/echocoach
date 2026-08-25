@@ -145,6 +145,8 @@ export const polish = action({
     nextSteps: v.string(),
     today: v.string(), // human-readable date, e.g. "Wednesday, June 3, 2026"
     language: v.union(v.literal("en"), v.literal("zh")),
+    classNumber: v.number(),
+    style: v.union(v.literal("kids"), v.literal("teenagers"), v.literal("adults")),
   },
   handler: async (_ctx, args) => {
     const t0 = Date.now();
@@ -152,8 +154,8 @@ export const polish = action({
 
     const systemPrompt =
       args.language === "zh"
-        ? buildChineseSystemPrompt(args.today, args.studentName)
-        : buildEnglishSystemPrompt(args.today);
+        ? buildChineseSystemPrompt(args.today, args.studentName, args.classNumber, args.style)
+        : buildEnglishSystemPrompt(args.today, args.studentName, args.classNumber, args.style);
 
     const userPrompt = buildUserPrompt(args);
     const tPrepDone = Date.now();
@@ -209,6 +211,8 @@ function buildUserPrompt(args: {
   progress: string;
   nextSteps: string;
   language: "en" | "zh";
+  classNumber: number;
+  style: "kids" | "teenagers" | "adults";
 }): string {
   if (args.language === "zh") {
     return [
@@ -234,34 +238,41 @@ function buildUserPrompt(args: {
   ].join("\n");
 }
 
-function buildEnglishSystemPrompt(today: string): string {
+function styleInstruction(style: "kids" | "teenagers" | "adults"): string {
+  return { kids: "fun, lively, age-appropriate, upbeat, and encouraging without sounding childish or exaggerated", teenagers: "specific, respectful, mature, supportive, and constructive without sounding childish", adults: "professional, concise, specific, candid, and constructive without childish or overly enthusiastic language" }[style];
+}
+
+function buildEnglishSystemPrompt(today: string, studentName: string, classNumber: number, style: "kids" | "teenagers" | "adults"): string {
   return [
     "You are EchoCoach, an assistant that writes post-class review messages for a tennis coach.",
     "The coach's name is Tom Tao. Write the message FROM Tom Tao TO the student or their parents.",
     "Follow these rules exactly:",
-    `1. Start with the date (${today}) and a warm greeting that uses the student's name.`,
-    "2. Use a warm, professional, and encouraging tone throughout. Sound human, not robotic.",
-    "3. Naturally weave in what was covered in the class, the student's progress, and the next steps / practice.",
-    "4. Keep it concise: 2-4 short paragraphs. Do not invent facts beyond what the coach provided.",
-    '5. Near the end, include a friendly closing line that means "looking forward to seeing you in our next class!" but phrase it a little differently each time so it never feels copy-pasted.',
-    '6. End with a sign-off on its own line: "Your Coach,\\nTom Tao".',
+    `1. Start exactly with: "Hi, ${studentName}". Never use "Dear" or an equivalent intimate greeting.`,
+    `2. Include exactly: "今天是这个球季的第 ${classNumber} 次课程". Never invent or alter the number.`,
+    `3. Use this style: ${styleInstruction(style)}.`,
+    "4. Naturally weave in what was covered in the class, the student's progress, and the next steps / practice.",
+    "5. Keep it concise: 2-4 short paragraphs. Do not invent facts beyond what the coach provided.",
+    '6. Near the end, include a friendly closing line that means "looking forward to seeing you in our next class!" but phrase it a little differently each time so it never feels copy-pasted.',
+    '7. End with a sign-off on its own line: "Your Coach,\\nTom Tao".',
     "Return only the message text, with no extra commentary, labels, or markdown.",
   ].join("\n");
 }
 
-function buildChineseSystemPrompt(today: string, studentName: string): string {
+function buildChineseSystemPrompt(today: string, studentName: string, classNumber: number, style: "kids" | "teenagers" | "adults"): string {
   return [
     "你是 EchoCoach，一位帮助网球教练撰写课后反馈的助手。",
     "教练的名字是 Tom Tao。请以 Tom Tao 的身份，向学员或其家长撰写反馈。",
     "请严格遵循以下规则：",
-    `1. 以日期（${today}）和包含学员姓名的温暖问候开头。`,
-    `2. 学员姓名必须逐字使用「${studentName}」——逐字复制，不得翻译、音译、本地化或改成中文名。`,
-    "3. 全文叙述必须使用简体中文。不得保留英文句子；唯一允许出现的拉丁字母是学员姓名、Tom Tao，以及教练笔记中的其他拉丁字母专有名词（保持原拼写）。",
-    "4. 教练提供的 Q2–Q4 笔记可能是中英混合的原文。请将所有叙述内容改写为流畅的中文，但其中的拉丁字母专有名词（尤其是学员姓名）保持原样。",
-    "5. 自然融入本节课内容、学员进步以及下一步练习建议。",
-    "6. 保持简洁：2-4 个短段落。不要编造教练未提供的信息。",
-    "7. 在结尾附近加入一句关于期待下次见面的友好结语，每次措辞略有不同。",
-    '8. 最后一行单独署名："您的教练，\\nTom Tao"。',
+    `1. 必须以「Hi, ${studentName}」开头；绝不使用 Dear、亲爱的或其他过度亲密的问候。`,
+    `2. 必须保留句子「今天是这个球季的第 ${classNumber} 次课程」，不得修改次数。`,
+    `3. 学员姓名必须逐字使用「${studentName}」——逐字复制，不得翻译、音译、本地化或改成中文名。`,
+    "4. 全文叙述必须使用简体中文。不得保留英文句子；唯一允许出现的拉丁字母是学员姓名、Tom Tao，以及教练笔记中的其他拉丁字母专有名词（保持原拼写）。",
+    "5. 教练提供的 Q2–Q4 笔记可能是中英混合的原文。请将所有叙述内容改写为流畅的中文，但其中的拉丁字母专有名词（尤其是学员姓名）保持原样。",
+    "6. 自然融入本节课内容、学员进步以及下一步练习建议。",
+    "7. 保持简洁：2-4 个短段落。不要编造教练未提供的信息。",
+    "8. 在结尾附近加入一句关于期待下次见面的友好结语，每次措辞略有不同。",
+    `8. 使用以下风格：${styleInstruction(style)}。`,
+    '9. 最后一行单独署名："Tom 教练"。绝不使用“您的教练”。',
     "只返回反馈正文，不要附加说明、标签或 Markdown。",
   ].join("\n");
 }

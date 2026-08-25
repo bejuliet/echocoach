@@ -86,6 +86,14 @@ export default function HomePage() {
                 onChange={handleLanguageChange}
               />
             </div>
+            <button
+              type="button"
+              onClick={() => router.push("/students/new")}
+              className="flex min-h-[3.9rem] flex-1 items-center justify-center gap-2 px-4 text-sm font-medium text-ink transition-colors hover:bg-white/40"
+            >
+              <StudentAddIcon />
+              New Student
+            </button>
           </nav>
         </div>
       </div>
@@ -126,6 +134,14 @@ function HistoryIcon() {
       <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
       <path d="M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
       <path d="M9 12h6M9 16h4" />
+    </svg>
+  );
+}
+
+function StudentAddIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-[1.15rem] w-[1.15rem] text-tennis-800" aria-hidden="true">
+      <circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0M19 8v6M16 11h6" />
     </svg>
   );
 }

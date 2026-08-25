@@ -2,9 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 import {
   Button,
   Card,
@@ -138,7 +137,6 @@ export default function LogPage() {
                 {filteredReviews.map((review) => (
                   <ReviewCard
                     key={review._id}
-                    reviewId={review._id}
                     language={language}
                     studentName={review.studentName}
                     classNumber={review.classNumber}
@@ -171,14 +169,12 @@ export default function LogPage() {
 
 // One saved review — same card pattern as the Review Ready message preview.
 function ReviewCard({
-  reviewId,
   language,
   studentName,
   classNumber,
   createdAt,
   message,
 }: {
-  reviewId: Id<"reviews">;
   language: Language;
   studentName: string;
   classNumber?: number;
@@ -186,8 +182,6 @@ function ReviewCard({
   message: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const removeReview = useMutation(api.reviews.remove);
   const copy = getCopy(language).log;
 
   const displayName = studentName.trim() || copy.yourStudent;
@@ -200,17 +194,6 @@ function ReviewCard({
     setTimeout(() => setCopied(false), 1500);
   }
 
-  async function deleteReview() {
-    if (!window.confirm(copy.confirmDelete(displayName))) return;
-
-    setIsDeleting(true);
-    try {
-      await removeReview({ reviewId });
-    } catch {
-      window.alert(copy.deleteFailed);
-      setIsDeleting(false);
-    }
-  }
 
   return (
     <li>
@@ -253,14 +236,6 @@ function ReviewCard({
             onClick={copyMessage}
           >
             {copied ? copy.copied : copy.copyMessage}
-          </Button>
-          <Button
-            variant="danger"
-            size="md"
-            onClick={deleteReview}
-            loading={isDeleting}
-          >
-            {isDeleting ? copy.deleting : copy.delete}
           </Button>
         </div>
       </Card>

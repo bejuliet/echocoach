@@ -4,6 +4,7 @@ import { Button, PageHeader, StepBar } from "@/app/components/ui";
 import { CelebrationHero } from "@/app/components/CelebrationHero";
 import { getCopy } from "@/app/lib/i18n";
 import { useLanguagePreference } from "@/app/lib/languagePreference";
+import { REVIEW_STYLE_OPTIONS, type ReviewStyle } from "@/app/lib/reviewStyle";
 
 // Shown after the coach approves the 4th intake answer — "Captured!" with ribbons.
 type CapturedViewProps = {
@@ -14,6 +15,8 @@ type CapturedViewProps = {
   onContinue: () => void;
   isGenerating: boolean;
   error: string | null;
+  reviewStyle: ReviewStyle;
+  onReviewStyleChange: (style: ReviewStyle) => void;
 };
 
 export function CapturedView({
@@ -24,6 +27,8 @@ export function CapturedView({
   onContinue,
   isGenerating,
   error,
+  reviewStyle,
+  onReviewStyleChange,
 }: CapturedViewProps) {
   const language = useLanguagePreference();
   const copy = getCopy(language).review.captured;
@@ -50,6 +55,13 @@ export function CapturedView({
           variant="captured"
         />
       </div>
+
+      <label className="mt-6 flex flex-col gap-2 text-sm font-medium text-tennis-900">
+        Language style
+        <select value={reviewStyle} onChange={(event) => onReviewStyleChange(event.target.value as ReviewStyle)} className="rounded-2xl border border-line bg-canvas px-4 py-3 text-base font-normal text-ink outline-none focus:ring-2 focus:ring-tennis-700/30">
+          {REVIEW_STYLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>
 
       <div className="mt-6 flex flex-col gap-3">
         <Button

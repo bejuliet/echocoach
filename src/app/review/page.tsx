@@ -24,6 +24,7 @@ import {
 import { shareClassReviewMessage } from "@/app/lib/shareMessage";
 import { useLanguagePreference, getLanguagePreference } from "@/app/lib/languagePreference";
 import { VoiceTimingPanel } from "../components/VoiceTimingPanel";
+import { type ReviewStyle } from "@/app/lib/reviewStyle";
 import {
   buildPolishReport,
   createStopwatch,
@@ -57,6 +58,7 @@ export default function ReviewPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
   const [studentId, setStudentId] = useState("");
+  const [reviewStyle, setReviewStyle] = useState<ReviewStyle>("adults");
   const [captureStage, setCaptureStage] = useState<Stage>("listening");
 
   const [message, setMessage] = useState("");
@@ -87,6 +89,9 @@ export default function ReviewPage() {
     const sw = isVoiceTimingEnabled() ? createStopwatch() : null;
     sw?.mark("polishStart");
     try {
+      if (nextClassNumber === undefined) {
+        throw new Error("Class number is still loading. Please try again in a moment.");
+      }
       // Read fresh preference in case it changed before this async call runs.
       const activeLanguage = getLanguagePreference();
       const today = formatToday(activeLanguage);
@@ -94,6 +99,8 @@ export default function ReviewPage() {
         ...answers,
         today,
         language: activeLanguage,
+        classNumber: nextClassNumber,
+        style: reviewStyle,
       });
       sw?.mark("polishDone");
       setMessage(result);
@@ -159,6 +166,7 @@ export default function ReviewPage() {
   function startOver() {
     setAnswers(EMPTY_ANSWERS);
     setStudentId("");
+    setReviewStyle("adults");
     setMessage("");
     setStepIndex(0);
     setError(null);
@@ -235,6 +243,8 @@ export default function ReviewPage() {
           stepIndex={stepIndex}
           totalSteps={steps.length}
           questionLabel={currentStep.label}
+          reviewStyle={reviewStyle}
+          onReviewStyleChange={setReviewStyle}
           onBack={() => {
             setPhase("collect");
             setCaptureStage("generated");
