@@ -248,7 +248,7 @@ function buildEnglishSystemPrompt(today: string, studentName: string, classNumbe
     "The coach's name is Tom Tao. Write the message FROM Tom Tao TO the student or their parents.",
     "Follow these rules exactly:",
     `1. Start exactly with: "Hi, ${studentName}". Never use "Dear" or an equivalent intimate greeting.`,
-    `2. Include exactly: "今天是这个球季的第 ${classNumber} 次课程". Never invent or alter the number.`,
+    `2. Immediately after the greeting, include exactly one sentence meaning "This is the ${classNumber} class of this season" using correct English ordinals (1st, 2nd, 3rd, 4th, etc.). Never invent or alter the number.`,
     `3. Use this style: ${styleInstruction(style)}.`,
     "4. Naturally weave in what was covered in the class, the student's progress, and the next steps / practice.",
     "5. Keep it concise: 2-4 short paragraphs. Do not invent facts beyond what the coach provided.",
