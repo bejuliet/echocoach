@@ -9,7 +9,9 @@ export const listActive = query({
     return students
       .filter((student) => student.status === "Active")
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map(({ studentId, name }) => ({ studentId, name }));
+      .flatMap((student) =>
+        student.studentId ? [{ studentId: student.studentId, name: student.name }] : [],
+      );
   },
 });
 
