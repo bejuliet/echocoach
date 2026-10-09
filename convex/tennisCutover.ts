@@ -3,6 +3,7 @@ import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { calculateStage1SequenceBaseline } from "./reviews";
+import { ensureLearningProfile } from "./learningProfiles";
 
 export const cutoverTennisStudent = mutation({
   args: {
@@ -51,11 +52,13 @@ export async function cutoverTennisStudentData(
         "StudentSport exists without a valid Tennis cutover boundary.",
       );
     }
+    const learningProfileId = await ensureLearningProfile(ctx, existing._id);
     return {
       studentSportId: existing._id,
       created: false,
       sequenceBaseline: existing.sequenceBaseline,
       stage2StartedAt: existing.stage2StartedAt,
+      learningProfileId,
     };
   }
 
@@ -70,11 +73,13 @@ export async function cutoverTennisStudentData(
     sequenceBaseline,
     stage2StartedAt,
   });
+  const learningProfileId = await ensureLearningProfile(ctx, studentSportId);
 
   return {
     studentSportId,
     created: true,
     sequenceBaseline,
     stage2StartedAt,
+    learningProfileId,
   };
 }

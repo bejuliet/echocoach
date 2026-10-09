@@ -2,12 +2,14 @@ import { mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
+import { ensureLearningProfile } from "./learningProfiles";
 
 type StudentSportResult = {
   id: Id<"studentSports">;
   created: boolean;
   sequenceBaseline: number;
   stage2StartedAt: number;
+  learningProfileId: Id<"studentLearningProfiles">;
 };
 
 function isActiveStudent(status: "Active" | "Inactive" | "active" | "inactive") {
@@ -53,11 +55,13 @@ async function enrollNativeStudentSport(
     if (existing.stage2StartedAt === undefined) {
       throw new ConvexError("StudentSport is not fully initialized.");
     }
+    const learningProfileId = await ensureLearningProfile(ctx, existing._id);
     return {
       id: existing._id,
       created: false,
       sequenceBaseline: existing.sequenceBaseline,
       stage2StartedAt: existing.stage2StartedAt,
+      learningProfileId,
     };
   }
 
@@ -79,7 +83,8 @@ async function enrollNativeStudentSport(
     sequenceBaseline: 0,
     stage2StartedAt,
   });
-  return { id, created: true, sequenceBaseline: 0, stage2StartedAt };
+  const learningProfileId = await ensureLearningProfile(ctx, id);
+  return { id, created: true, sequenceBaseline: 0, stage2StartedAt, learningProfileId };
 }
 
 export const createStage2Student = mutation({

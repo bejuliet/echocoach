@@ -5,7 +5,7 @@ import {
 } from "./reviews";
 import { cutoverTennisStudentData } from "./tennisCutover";
 
-type TableName = "students" | "sports" | "studentSports" | "reviews";
+type TableName = "students" | "sports" | "studentSports" | "reviews" | "studentLearningProfiles";
 type Row = Record<string, unknown> & { _id: string };
 type QueryBuilder = {
   eq: (name: string, value: unknown) => QueryBuilder;
@@ -18,6 +18,7 @@ function makeDb(seed: Partial<Record<TableName, Row[]>> = {}) {
     sports: seed.sports ?? [],
     studentSports: seed.studentSports ?? [],
     reviews: seed.reviews ?? [],
+    studentLearningProfiles: seed.studentLearningProfiles ?? [],
   };
   let nextId = 1;
   const db = {
@@ -166,6 +167,7 @@ describe("progressive Tennis cutover", () => {
       created: false,
       sequenceBaseline: 13,
       stage2StartedAt: 123,
+      learningProfileId: "studentLearningProfiles_1",
     });
     expect(rows.studentSports).toHaveLength(1);
   });

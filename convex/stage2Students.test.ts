@@ -4,7 +4,7 @@ import {
   enrollStudentInSportData,
 } from "./stage2Students";
 
-type TableName = "students" | "sports" | "studentSports";
+type TableName = "students" | "sports" | "studentSports" | "studentLearningProfiles";
 type Row = Record<string, unknown> & { _id: string };
 type QueryBuilder = {
   eq: (name: string, value: unknown) => QueryBuilder;
@@ -15,6 +15,7 @@ function makeDb(seed: Partial<Record<TableName, Row[]>> = {}) {
     students: seed.students ?? [],
     sports: seed.sports ?? [],
     studentSports: seed.studentSports ?? [],
+    studentLearningProfiles: seed.studentLearningProfiles ?? [],
   };
   let nextId = 1;
   const db = {
@@ -39,6 +40,11 @@ function makeDb(seed: Partial<Record<TableName, Row[]>> = {}) {
           );
           if (matches.length > 1) throw new Error("Expected unique result");
           return matches[0];
+        },
+        async collect() {
+          return rows[table].filter((row) =>
+            Object.entries(filters).every(([key, value]) => row[key] === value),
+          );
         },
       };
       return chain;
@@ -113,6 +119,7 @@ describe("Stage 2-native Student and StudentSport", () => {
       created: false,
       sequenceBaseline: 0,
       stage2StartedAt: 123,
+      learningProfileId: "studentLearningProfiles_1",
     });
     expect(rows.studentSports).toHaveLength(1);
   });

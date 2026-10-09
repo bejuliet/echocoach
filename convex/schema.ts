@@ -49,6 +49,34 @@ export default defineSchema({
     .index("by_sport", ["sportId"])
     .index("by_student_sport", ["studentId", "sportId"]),
 
+  studentLearningProfiles: defineTable({
+    studentSportId: v.id("studentSports"),
+    learningGoal: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index("by_studentSport", ["studentSportId"]),
+
+  learningMilestones: defineTable({
+    learningProfileId: v.id("studentLearningProfiles"),
+    milestoneText: v.string(),
+    status: v.union(
+      v.literal("next"),
+      v.literal("current"),
+      v.literal("achieved"),
+    ),
+    achievedDate: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_profile", ["learningProfileId"])
+    .index("by_profile_status", ["learningProfileId", "status"]),
+
+  capabilityRatings: defineTable({
+    learningProfileId: v.id("studentLearningProfiles"),
+    capabilityKey: v.string(),
+    rating: v.number(),
+    updatedAt: v.number(),
+  }).index("by_profile_key", ["learningProfileId", "capabilityKey"]),
+
   classSeries: defineTable({
     coachId: v.id("coaches"),
     sportId: v.id("sports"),
