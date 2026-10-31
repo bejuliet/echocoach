@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
+import { requireAuthenticatedCoach, requireStudentAccess } from "./authorization";
 
 // Read every saved review, newest first.
 // We use the `by_createdAt` index (defined in schema.ts) and order it
@@ -9,11 +10,25 @@ import { ConvexError, v } from "convex/values";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db
+    const coach = await requireAuthenticatedCoach(ctx);
+    const reviews = await ctx.db
       .query("reviews")
       .withIndex("by_createdAt")
       .order("desc")
       .collect();
+    const visible = [];
+    for (const review of reviews) {
+      if (!review.studentId) continue;
+      const student = await ctx.db.query("students").withIndex("by_studentId", (q) => q.eq("studentId", review.studentId!)).unique();
+      if (!student) continue;
+      try {
+        await requireStudentAccess(ctx, coach._id, student._id);
+        visible.push(review);
+      } catch {
+        // Cross-Coach reviews are intentionally omitted rather than exposed.
+      }
+    }
+    return visible;
   },
 });
 
@@ -22,6 +37,10 @@ export const nextClassNumber = query({
     studentId: v.string(),
   },
   handler: async (ctx, { studentId }) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    const student = await ctx.db.query("students").withIndex("by_studentId", (q) => q.eq("studentId", studentId)).unique();
+    if (!student) throw new ConvexError("Student not found.");
+    await requireStudentAccess(ctx, coach._id, student._id);
     return await computeNextClassNumber(ctx, studentId);
   },
 });
@@ -39,6 +58,7 @@ export const create = mutation({
     message: v.string(),
   },
   handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
     const { studentId: requestedStudentId, ...reviewFields } = args;
     let studentId: string | undefined;
     let studentName = args.studentName;
@@ -53,6 +73,7 @@ export const create = mutation({
       if (!student || student.status !== "Active") {
         throw new ConvexError("Please select an active student.");
       }
+      await requireStudentAccess(ctx, coach._id, student._id);
       assertStage1ReviewCompatibility(student);
       await assertNotCutOverToStage2(ctx, student._id);
       studentId = student.studentId;
@@ -67,6 +88,7 @@ export const create = mutation({
       );
       if (matchingStudents.length === 1) {
         const matchedStudent = matchingStudents[0];
+        await requireStudentAccess(ctx, coach._id, matchedStudent._id);
         assertStage1ReviewCompatibility(matchedStudent);
         await assertNotCutOverToStage2(ctx, matchedStudent._id);
         studentId = matchedStudent.studentId;
@@ -182,6 +204,16 @@ export const remove = mutation({
     reviewId: v.id("reviews"),
   },
   handler: async (ctx, { reviewId }) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    const review = await ctx.db.get(reviewId);
+    if (!review) throw new ConvexError("Review not found.");
+    if (review.studentId) {
+      const student = await ctx.db.query("students").withIndex("by_studentId", (q) => q.eq("studentId", review.studentId)).unique();
+      if (!student) throw new ConvexError("Student access denied.");
+      await requireStudentAccess(ctx, coach._id, student._id);
+    } else {
+      throw new ConvexError("Review access denied.");
+    }
     await ctx.db.delete(reviewId);
   },
 });

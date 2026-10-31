@@ -4,12 +4,17 @@ import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { calculateStage1SequenceBaseline } from "./reviews";
 import { ensureLearningProfile } from "./learningProfiles";
+import { requireAuthenticatedCoach, requireStudentAccess } from "./authorization";
 
 export const cutoverTennisStudent = mutation({
   args: {
     studentId: v.id("students"),
   },
-  handler: async (ctx, args) => cutoverTennisStudentData(ctx, args.studentId),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireStudentAccess(ctx, coach._id, args.studentId);
+    return cutoverTennisStudentData(ctx, args.studentId);
+  },
 });
 
 export async function cutoverTennisStudentData(

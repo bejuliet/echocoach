@@ -9,6 +9,7 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as authorization from "../authorization.js";
 import type * as capabilityRatings from "../capabilityRatings.js";
 import type * as classSeries from "../classSeries.js";
 import type * as learningGoals from "../learningGoals.js";
@@ -20,6 +21,7 @@ import type * as reviews from "../reviews.js";
 import type * as sportConfig from "../sportConfig.js";
 import type * as stage2Students from "../stage2Students.js";
 import type * as studentFoundation from "../studentFoundation.js";
+import type * as studentPortal from "../studentPortal.js";
 import type * as students from "../students.js";
 import type * as tennisCutover from "../tennisCutover.js";
 
@@ -31,6 +33,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  authorization: typeof authorization;
   capabilityRatings: typeof capabilityRatings;
   classSeries: typeof classSeries;
   learningGoals: typeof learningGoals;
@@ -42,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   sportConfig: typeof sportConfig;
   stage2Students: typeof stage2Students;
   studentFoundation: typeof studentFoundation;
+  studentPortal: typeof studentPortal;
   students: typeof students;
   tennisCutover: typeof tennisCutover;
 }>;

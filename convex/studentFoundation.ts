@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 
 const BASELINE_THROUGH_DATE = "2026-08-12";
 
@@ -232,7 +232,7 @@ const INITIAL_CLASSES: ClassSeed[] = [
 // patched rather than duplicated. Historical reviews are only linked when the
 // stored free-text name exactly matches one canonical student name after
 // trimming and case normalization.
-export const initialize = mutation({
+export const initialize = internalMutation({
   args: {},
   handler: async (ctx) => {
     for (const student of INITIAL_STUDENTS) {
@@ -290,7 +290,7 @@ export const initialize = mutation({
 });
 
 // Read-only preview for auditing before initialize is run on a deployment.
-export const previewBackfill = query({
+export const previewBackfill = internalQuery({
   args: {},
   handler: async (ctx) => {
     const studentIdByName = new Map(

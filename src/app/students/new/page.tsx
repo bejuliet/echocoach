@@ -1,89 +1,64 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation } from "convex/react";
+import { FormEvent, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { api } from "../../../../convex/_generated/api";
-import { Button, Card, PageHeader } from "@/app/components/ui";
-
-type Form = {
-  name: string; status: "Active" | "Inactive"; startDate: string;
-  baselineClassesTaken: string; notes: string; className: string;
-  students: string; classType: "1:1" | "1:2" | "1:3" | "1:4";
-  classStatus: "Active" | "Inactive"; cycle: string;
-};
-
-function today() { return new Date().toLocaleDateString("en-CA"); }
-
-const initialForm = (): Form => ({
-  name: "", status: "Active", startDate: today(), baselineClassesTaken: "0",
-  notes: "", className: "", students: "", classType: "1:1", classStatus: "Active", cycle: "Weekly",
-});
 
 export default function NewStudentPage() {
   const router = useRouter();
-  const createWithClass = useMutation(api.students.createWithClass);
-  const [form, setForm] = useState<Form>(initialForm);
-  const [reviewing, setReviewing] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const sports = useQuery(api.studentPortal.authorizedSports);
+  const createStudent = useMutation(api.stage2Students.createStage2Student);
+  const [name, setName] = useState("");
+  const [sportId, setSportId] = useState("");
+  const [mobilePhone, setMobilePhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [contactName, setContactName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  function update<K extends keyof Form>(key: K, value: Form[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
-    if (key === "name" && (form.className === "" || form.className === `${form.name.trim()} Class`)) {
-      setForm((current) => ({ ...current, className: `${String(value).trim()} Class` }));
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Student name is required.");
+      return;
     }
-  }
-
-  function review() {
+    if (!sportId) {
+      setError("Choose an authorized Sport.");
+      return;
+    }
+    setSaving(true);
     setError(null);
-    if (!form.name.trim() || !form.className.trim() || !form.students.trim()) {
-      setError("Please complete the student name, class name, and students fields."); return;
-    }
-    setReviewing(true);
-  }
-
-  async function submit() {
-    setSaving(true); setError(null);
     try {
-      await createWithClass({ ...form, name: form.name.trim(), className: form.className.trim(), students: form.students.trim(), baselineClassesTaken: Number(form.baselineClassesTaken), notes: form.notes.trim() || undefined });
-      router.push("/review");
+      const result = await createStudent({
+        name: trimmedName,
+        sportId: sportId as never,
+        mobilePhone: mobilePhone.trim() || undefined,
+        email: email.trim() || undefined,
+        contactName: contactName.trim() || undefined,
+      });
+      router.push(`/students/${result.studentId}`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not add the student.");
+      setError(cause instanceof Error ? cause.message : "Unable to create Student.");
       setSaving(false);
     }
   }
 
   return (
-    <main className="min-h-dvh bg-canvas px-5 pb-8">
-      <PageHeader title="New Student" onBack={() => router.push("/")} />
-      {!reviewing ? <StudentForm form={form} update={update} error={error} onReview={review} /> : <Confirmation form={form} error={error} saving={saving} onBack={() => setReviewing(false)} onConfirm={() => void submit()} />}
+    <main className="mx-auto max-w-2xl">
+      <div className="mb-6"><p className="text-sm text-muted">Stage 2</p><h1 className="text-3xl font-semibold text-tennis-900">Add student</h1><p className="mt-2 text-sm text-ink-muted">Create a Student and enroll them in one of your authorized Sports.</p></div>
+      <form onSubmit={submit} className="grid gap-4 rounded-2xl border border-line bg-card p-6">
+        <label className="grid gap-1 text-sm font-medium">Student name *<input autoFocus required value={name} onChange={(event) => setName(event.target.value)} className="rounded-xl border border-line px-3 py-2 font-normal" /></label>
+        <label className="grid gap-1 text-sm font-medium">Sport *<select required value={sportId} onChange={(event) => setSportId(event.target.value)} disabled={sports === undefined || sports.length === 0} className="rounded-xl border border-line px-3 py-2 font-normal"><option value="">{sports === undefined ? "Loading authorized Sports…" : sports.length === 0 ? "No authorized Sports available" : "Choose a Sport"}</option>{sports?.map((sport) => <option key={sport.sportId} value={sport.sportId}>{sport.name}</option>)}</select></label>
+        <label className="grid gap-1 text-sm font-medium">Contact name<input value={contactName} onChange={(event) => setContactName(event.target.value)} className="rounded-xl border border-line px-3 py-2 font-normal" /></label>
+        <label className="grid gap-1 text-sm font-medium">Mobile phone<input value={mobilePhone} onChange={(event) => setMobilePhone(event.target.value)} className="rounded-xl border border-line px-3 py-2 font-normal" /></label>
+        <label className="grid gap-1 text-sm font-medium">Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-xl border border-line px-3 py-2 font-normal" /></label>
+        {sports?.length === 0 && <p className="text-sm text-ink-muted">Ask an administrator to associate a Sport with your Coach account before creating Students.</p>}
+        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
+        <div className="mt-2 flex gap-3"><button type="button" onClick={() => router.push("/students")} className="rounded-full border border-line px-5 py-2 text-sm font-medium text-ink-muted" disabled={saving}>Cancel</button><button type="submit" className="rounded-full bg-tennis-700 px-5 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={saving || sports === undefined || sports.length === 0}>{saving ? "Saving…" : "Create student"}</button></div>
+      </form>
     </main>
   );
 }
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="flex flex-col gap-2 text-sm font-medium text-ink">{label}{children}</label>;
-}
-const inputClass = "min-h-11 w-full min-w-0 rounded-2xl border border-line bg-card px-4 text-base font-normal text-ink outline-none focus:border-tennis-700 focus:ring-2 focus:ring-tennis-700/20";
-
-function StudentForm({ form, update, error, onReview }: { form: Form; update: <K extends keyof Form>(key: K, value: Form[K]) => void; error: string | null; onReview: () => void }) {
-  return <div className="mx-auto flex max-w-lg flex-col gap-4 pt-4"><p className="text-sm text-ink-muted">Add a student and their class. You can review everything before saving.</p><Card className="flex flex-col gap-4">
-    <h2 className="text-lg font-semibold text-tennis-900">Student</h2>
-    <Field label="Student name *"><input className={inputClass} value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="e.g. Emma" /></Field>
-    <div className="grid grid-cols-[0.85fr_1.15fr] gap-3"><Field label="Status"><select className={inputClass} value={form.status} onChange={(e) => update("status", e.target.value as Form["status"])}><option>Active</option><option>Inactive</option></select></Field><Field label="Start date"><input type="date" className={inputClass} value={form.startDate} onChange={(e) => update("startDate", e.target.value)} /></Field></div>
-    <Field label="Previous classes taken"><input type="number" min="0" step="1" className={inputClass} value={form.baselineClassesTaken} onChange={(e) => update("baselineClassesTaken", e.target.value)} /></Field>
-    <Field label="Notes (optional)"><textarea className={`${inputClass} py-3`} rows={3} value={form.notes} onChange={(e) => update("notes", e.target.value)} /></Field>
-    <h2 className="pt-2 text-lg font-semibold text-tennis-900">Class</h2>
-    <Field label="Class name *"><input className={inputClass} value={form.className} onChange={(e) => update("className", e.target.value)} /></Field>
-    <Field label="Students *"><input className={inputClass} value={form.students} onChange={(e) => update("students", e.target.value)} placeholder="e.g. Emma, Noah" /></Field>
-    <div className="grid grid-cols-2 gap-3"><Field label="Class type"><select className={inputClass} value={form.classType} onChange={(e) => update("classType", e.target.value as Form["classType"])}>{["1:1", "1:2", "1:3", "1:4"].map((v) => <option key={v}>{v}</option>)}</select></Field><Field label="Class status"><select className={inputClass} value={form.classStatus} onChange={(e) => update("classStatus", e.target.value as Form["classStatus"])}><option>Active</option><option>Inactive</option></select></Field></div>
-    <Field label="Cycle"><select className={inputClass} value={form.cycle} onChange={(e) => update("cycle", e.target.value)}><option>Weekly</option><option>Biweekly</option><option>Monthly</option></select></Field>
-    {error && <p className="text-sm text-red-600">{error}</p>}<Button fullWidth onClick={onReview}>Review information</Button>
-  </Card></div>;
-}
-
-function Confirmation({ form, error, saving, onBack, onConfirm }: { form: Form; error: string | null; saving: boolean; onBack: () => void; onConfirm: () => void }) {
-  return <div className="mx-auto flex max-w-lg flex-col gap-4 pt-4"><p className="text-sm text-ink-muted">Please confirm these records before they are created.</p><Card className="flex flex-col gap-3"><h2 className="text-lg font-semibold text-tennis-900">Student</h2><Summary label="Name" value={form.name} /><Summary label="Status" value={form.status} /><Summary label="Start date" value={form.startDate} /><Summary label="Previous classes" value={form.baselineClassesTaken} /><Summary label="Notes" value={form.notes || "—"} /><h2 className="mt-3 text-lg font-semibold text-tennis-900">Class</h2><Summary label="Class name" value={form.className} /><Summary label="Students" value={form.students} /><Summary label="Class type" value={form.classType} /><Summary label="Status" value={form.classStatus} /><Summary label="Cycle" value={form.cycle} />{error && <p className="text-sm text-red-600">{error}</p>}</Card><Button fullWidth onClick={onConfirm} loading={saving}>Confirm & add student</Button><Button fullWidth variant="secondary" onClick={onBack} disabled={saving}>Back / edit</Button></div>;
-}
-function Summary({ label, value }: { label: string; value: string }) { return <div className="flex justify-between gap-4 border-b border-line/70 pb-2 text-sm"><span className="text-ink-muted">{label}</span><span className="text-right font-medium text-ink">{value}</span></div>; }

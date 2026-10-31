@@ -2,12 +2,21 @@ import { mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
+import { requireAuthenticatedCoach, requireStudentAccess } from "./authorization";
 
 export const copyLegacyReview = mutation({
   args: {
     reviewId: v.id("reviews"),
   },
-  handler: async (ctx, args) => copyLegacyReviewData(ctx, args.reviewId),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    const source = await ctx.db.get(args.reviewId);
+    if (!source?.studentId) throw new ConvexError("Review access denied.");
+    const student = await ctx.db.query("students").withIndex("by_studentId", (q) => q.eq("studentId", source.studentId!)).unique();
+    if (!student) throw new ConvexError("Student access denied.");
+    await requireStudentAccess(ctx, coach._id, student._id);
+    return copyLegacyReviewData(ctx, args.reviewId);
+  },
 });
 
 export async function copyLegacyReviewData(

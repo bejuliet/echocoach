@@ -1,4 +1,4 @@
-import { mutation } from "./_generated/server";
+import { internalMutation, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 
@@ -25,9 +25,18 @@ export type FoundationResult = {
   };
 };
 
-export const ensurePlatformFoundation = mutation({
+export const ensurePlatformFoundationInternal = internalMutation({
   args: {},
   handler: async (ctx) => ensureFoundation(ctx),
+});
+
+// Kept as a compatibility symbol for older generated clients, but deliberately
+// disabled so initialization cannot be invoked from a browser.
+export const ensurePlatformFoundation = mutation({
+  args: {},
+  handler: async (): Promise<FoundationResult> => {
+    throw new Error("Platform foundation initialization is internal-only.");
+  },
 });
 
 export async function ensureFoundation(

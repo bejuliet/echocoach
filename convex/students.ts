@@ -1,13 +1,21 @@
 import { mutation, query } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
+import { requireAuthenticatedCoach } from "./authorization";
 
 // The Review Intake selector only needs active student identities and names.
 export const listActive = query({
   args: {},
   handler: async (ctx) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    const coachSports = await ctx.db.query("coachSports").withIndex("by_coach", (q) => q.eq("coachId", coach._id)).collect();
+    const sportIds = new Set(coachSports.map((relationship) => relationship.sportId));
+    const enrollments = (await Promise.all([...sportIds].map((sportId) =>
+      ctx.db.query("studentSports").withIndex("by_sport", (q) => q.eq("sportId", sportId)).collect(),
+    ))).flat();
+    const authorizedStudentIds = new Set(enrollments.map((enrollment) => enrollment.studentId));
     const students = await ctx.db.query("students").collect();
     return students
-      .filter((student) => student.status === "Active")
+      .filter((student) => student.status === "Active" && authorizedStudentIds.has(student._id))
       .sort((a, b) => a.name.localeCompare(b.name))
       .flatMap((student) =>
         student.studentId ? [{ studentId: student.studentId, name: student.name }] : [],
@@ -26,6 +34,9 @@ export const createWithClass = mutation({
     startDate: v.string(),
     baselineClassesTaken: v.number(),
     notes: v.optional(v.string()),
+    mobilePhone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    contactName: v.optional(v.string()),
     className: v.string(),
     students: v.string(),
     classType: v.union(v.literal("1:1"), v.literal("1:2"), v.literal("1:3"), v.literal("1:4")),
@@ -33,6 +44,7 @@ export const createWithClass = mutation({
     cycle: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireAuthenticatedCoach(ctx);
     const name = args.name.trim();
     const className = args.className.trim();
     const students = args.students.trim();
@@ -41,6 +53,9 @@ export const createWithClass = mutation({
     }
     if (!Number.isInteger(args.baselineClassesTaken) || args.baselineClassesTaken < 0) {
       throw new ConvexError("Previous classes taken must be a whole number of 0 or more.");
+    }
+    if (args.email?.trim() && !/^\S+@\S+\.\S+$/.test(args.email.trim())) {
+      throw new ConvexError("Email address is invalid.");
     }
     const existing = await ctx.db.query("students").collect();
     if (existing.some((student) => normalizeName(student.name) === normalizeName(name))) {
@@ -63,6 +78,9 @@ export const createWithClass = mutation({
       baselineClassesTaken: args.baselineClassesTaken,
       baselineThroughDate: args.startDate,
       ...(args.notes ? { notes: args.notes.trim() } : {}),
+      ...(args.mobilePhone?.trim() ? { mobilePhone: args.mobilePhone.trim() } : {}),
+      ...(args.email?.trim() ? { email: args.email.trim() } : {}),
+      ...(args.contactName?.trim() ? { contactName: args.contactName.trim() } : {}),
     });
     await ctx.db.insert("classes", {
       classId,

@@ -2,6 +2,7 @@ import { mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
+import { requireAuthenticatedCoach, requireLearningProfileAccess, requireMilestoneAccess } from "./authorization";
 
 const milestoneStatus = v.union(
   v.literal("next"),
@@ -45,7 +46,11 @@ export const updateLearningGoal = mutation({
     learningProfileId: v.id("studentLearningProfiles"),
     learningGoal: v.optional(v.string()),
   },
-  handler: async (ctx, args) => updateLearningGoalData(ctx, args),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireLearningProfileAccess(ctx, coach._id, args.learningProfileId);
+    return updateLearningGoalData(ctx, args);
+  },
 });
 
 export async function updateLearningGoalData(
@@ -71,7 +76,11 @@ export const createLearningMilestone = mutation({
     status: milestoneStatus,
     achievedDate: v.optional(v.string()),
   },
-  handler: async (ctx, args) => createLearningMilestoneData(ctx, args),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireLearningProfileAccess(ctx, coach._id, args.learningProfileId);
+    return createLearningMilestoneData(ctx, args);
+  },
 });
 
 export async function createLearningMilestoneData(
@@ -105,7 +114,11 @@ export const updateLearningMilestone = mutation({
     status: v.optional(milestoneStatus),
     achievedDate: v.optional(v.string()),
   },
-  handler: async (ctx, args) => updateLearningMilestoneData(ctx, args),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireMilestoneAccess(ctx, coach._id, args.milestoneId);
+    return updateLearningMilestoneData(ctx, args);
+  },
 });
 
 export async function updateLearningMilestoneData(

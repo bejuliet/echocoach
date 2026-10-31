@@ -19,6 +19,9 @@ export default defineSchema({
     baselineClassesTaken: v.optional(v.number()),
     baselineThroughDate: v.optional(v.string()),
     notes: v.optional(v.string()),
+    mobilePhone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    contactName: v.optional(v.string()),
   }).index("by_studentId", ["studentId"]),
 
   sports: defineTable({
@@ -29,7 +32,8 @@ export default defineSchema({
   coaches: defineTable({
     name: v.string(),
     status: v.union(v.literal("active"), v.literal("inactive")),
-  }).index("by_name", ["name"]),
+    externalUserId: v.optional(v.string()),
+  }).index("by_name", ["name"]).index("by_externalUserId", ["externalUserId"]),
 
   coachSports: defineTable({
     coachId: v.id("coaches"),

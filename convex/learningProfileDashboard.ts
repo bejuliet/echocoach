@@ -7,6 +7,7 @@ import {
   isSupportedSportName,
   isValidCapabilityKey,
 } from "./sportConfig";
+import { requireAuthenticatedCoach, requireStudentSportAccess } from "./authorization";
 
 type DashboardCtx = Pick<QueryCtx, "db">;
 
@@ -22,7 +23,11 @@ export const getStudentLearningProfileDashboard = query({
   args: {
     studentSportId: v.id("studentSports"),
   },
-  handler: async (ctx, args) => getStudentLearningProfileDashboardData(ctx, args.studentSportId),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireStudentSportAccess(ctx, coach._id, args.studentSportId);
+    return getStudentLearningProfileDashboardData(ctx, args.studentSportId);
+  },
 });
 
 export async function getStudentLearningProfileDashboardData(

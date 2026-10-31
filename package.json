@@ -11,6 +11,7 @@
     "test:integration:learning-profile": "vitest run convex/learningProfile.integration.test.ts --no-file-parallelism"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.22",
     "convex": "^1.40.0",
     "next": "16.2.7",
     "react": "19.2.4",

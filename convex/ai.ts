@@ -1,5 +1,7 @@
 import { action } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
+import { requireAuthenticatedIdentity } from "./authorization";
+import { api } from "./_generated/api";
 
 // All OpenAI calls live here, inside Convex *actions*.
 // Actions are the only Convex function type allowed to talk to the outside
@@ -45,7 +47,9 @@ export const transcribe = action({
     mimeType: v.string(), // e.g. "audio/webm" (Chrome) or "audio/mp4" (Safari)
     language: v.union(v.literal("en"), v.literal("zh")),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireAuthenticatedIdentity(ctx);
+    await ctx.runQuery(api.studentPortal.currentCoach, {});
     const t0 = Date.now();
     const meta = {
       byteLength: args.audio.byteLength,
@@ -148,7 +152,9 @@ export const polish = action({
     classNumber: v.number(),
     style: v.union(v.literal("kids"), v.literal("teenagers"), v.literal("adults")),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    await requireAuthenticatedIdentity(ctx);
+    await ctx.runQuery(api.studentPortal.currentCoach, {});
     const t0 = Date.now();
     const apiKey = getApiKey();
 

@@ -2,6 +2,7 @@ import { mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
+import { requireAuthenticatedCoach, requireClassSeriesAccess, requireCoachSportAccess } from "./authorization";
 
 type SeriesArgs = {
   coachId: Id<"coaches">;
@@ -119,7 +120,11 @@ export const createClassSeries = mutation({
     usualStartTime: v.optional(v.string()),
     usualEndTime: v.optional(v.string()),
   },
-  handler: async (ctx, args) => createClassSeriesData(ctx, args),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireCoachSportAccess(ctx, coach._id, args.sportId);
+    return createClassSeriesData(ctx, { ...args, coachId: coach._id });
+  },
 });
 
 export async function createClassSeriesData(ctx: Pick<MutationCtx, "db">, args: SeriesArgs) {
@@ -143,7 +148,8 @@ export const updateClassSeries = mutation({
     usualEndTime: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const series = await ctx.db.get(args.classSeriesId);
+    const coach = await requireAuthenticatedCoach(ctx);
+    const series = await requireClassSeriesAccess(ctx, coach._id, args.classSeriesId);
     if (!series) throw new ConvexError("ClassSeries not found.");
     await ctx.db.patch(args.classSeriesId, {
       ...(args.status === undefined ? {} : { status: args.status }),
@@ -160,7 +166,11 @@ export const changeClassSeriesMembership = mutation({
     classSeriesId: v.id("classSeries"),
     studentIds: v.array(v.id("students")),
   },
-  handler: async (ctx, args) => changeClassSeriesMembershipData(ctx, args),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireClassSeriesAccess(ctx, coach._id, args.classSeriesId);
+    return changeClassSeriesMembershipData(ctx, args);
+  },
 });
 
 export async function changeClassSeriesMembershipData(

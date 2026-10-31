@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "../components/Logo";
+import { AuthControls } from "../components/AuthControls";
 
 // Shared chrome for the working app screens (review, log, design system).
 // The home page lives outside this group so it can be full-screen like the mockup.
@@ -23,7 +24,7 @@ export default function ShellLayout({
               </span>
             </span>
           </Link>
-          <div className="flex items-center gap-1 text-sm">
+          <div className="flex items-center gap-3 text-sm">
             <Link
               href="/review"
               className="rounded-full px-4 py-2 text-muted transition-colors hover:bg-accent-soft hover:text-accent"
@@ -36,6 +37,7 @@ export default function ShellLayout({
             >
               Home
             </Link>
+            <AuthControls />
           </div>
         </nav>
       </header>

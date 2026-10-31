@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createStage2StudentData,
   enrollStudentInSportData,
+  updateStudentContactData,
 } from "./stage2Students";
 
 type TableName = "students" | "sports" | "studentSports" | "studentLearningProfiles";
@@ -53,6 +54,14 @@ function makeDb(seed: Partial<Record<TableName, Row[]>> = {}) {
       const row = { ...value, _id: `${table}_${nextId++}` };
       rows[table].push(row);
       return row._id;
+    },
+    async patch(id: string, value: Record<string, unknown>) {
+      const row = Object.values(rows).flat().find((item) => item._id === id);
+      if (!row) throw new Error("missing row");
+      for (const [key, nextValue] of Object.entries(value)) {
+        if (nextValue === undefined) delete row[key];
+        else row[key] = nextValue;
+      }
     },
   };
   return { db, rows };
@@ -191,5 +200,41 @@ describe("Stage 2-native Student and StudentSport", () => {
         sportId: tennis._id as never,
       }),
     ).rejects.toThrow("requires the Stage 1 cutover flow");
+  });
+
+  it("stores optional contact fields and supports clearing them", async () => {
+    const { db, rows } = makeDb({ sports: [ski] });
+    const result = await createStage2StudentData({ db } as never, {
+      name: "Maya",
+      sportId: ski._id as never,
+      mobilePhone: "  +1 555 0100 ",
+      email: " maya@example.com ",
+      contactName: "  Alex Maya ",
+    });
+
+    expect(rows.students[0]).toMatchObject({
+      mobilePhone: "+1 555 0100",
+      email: "maya@example.com",
+      contactName: "Alex Maya",
+    });
+    await updateStudentContactData({ db } as never, {
+      studentId: result.studentId as never,
+      email: null,
+      contactName: "  ",
+    });
+    expect(rows.students[0]).not.toHaveProperty("email");
+    expect(rows.students[0]).not.toHaveProperty("contactName");
+    expect(rows.students[0]).toHaveProperty("mobilePhone", "+1 555 0100");
+  });
+
+  it("rejects malformed contact email values", async () => {
+    const { db } = makeDb({ sports: [ski] });
+    await expect(
+      createStage2StudentData({ db } as never, {
+        name: "Maya",
+        sportId: ski._id as never,
+        email: "not-an-email",
+      }),
+    ).rejects.toThrow("Email address is invalid.");
   });
 });

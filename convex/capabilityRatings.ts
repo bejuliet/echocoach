@@ -3,6 +3,7 @@ import type { MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, v } from "convex/values";
 import { isSupportedSportName, isValidCapabilityKey } from "./sportConfig";
+import { requireAuthenticatedCoach, requireLearningProfileAccess } from "./authorization";
 
 async function resolveCapabilityContext(
   ctx: Pick<MutationCtx, "db">,
@@ -39,7 +40,11 @@ export const updateCapabilityRating = mutation({
     capabilityKey: v.string(),
     rating: v.number(),
   },
-  handler: async (ctx, args) => updateCapabilityRatingData(ctx, args),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireLearningProfileAccess(ctx, coach._id, args.learningProfileId);
+    return updateCapabilityRatingData(ctx, args);
+  },
 });
 
 export async function updateCapabilityRatingData(
@@ -101,7 +106,11 @@ export const clearCapabilityRating = mutation({
     learningProfileId: v.id("studentLearningProfiles"),
     capabilityKey: v.string(),
   },
-  handler: async (ctx, args) => clearCapabilityRatingData(ctx, args),
+  handler: async (ctx, args) => {
+    const coach = await requireAuthenticatedCoach(ctx);
+    await requireLearningProfileAccess(ctx, coach._id, args.learningProfileId);
+    return clearCapabilityRatingData(ctx, args);
+  },
 });
 
 export async function clearCapabilityRatingData(
